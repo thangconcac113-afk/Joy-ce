@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import { parseChannelInput, parseDuration } from "@/lib/youtube";
+
+describe("parseChannelInput", () => {
+  it("accepts handles, IDs and URLs", () => {
+    expect(parseChannelInput("@TeamSecret")).toEqual({ handle: "@TeamSecret" });
+    expect(parseChannelInput("TeamSecret")).toEqual({ handle: "@TeamSecret" });
+    expect(parseChannelInput("https://www.youtube.com/@teamsecret/videos")).toEqual({ handle: "@teamsecret" });
+    const id = "UC" + "a".repeat(22);
+    expect(parseChannelInput(id)).toEqual({ id });
+    expect(parseChannelInput(`https://youtube.com/channel/${id}`)).toEqual({ id });
+  });
+  it("rejects junk", () => {
+    expect(() => parseChannelInput("x")).toThrow();
+  });
+});
+
+describe("parseDuration", () => {
+  it("parses ISO 8601 durations", () => {
+    expect(parseDuration("PT9S")).toBe(9);
+    expect(parseDuration("PT4H33M46S")).toBe(16426);
+    expect(parseDuration("P1DT1M")).toBe(86460);
+    expect(parseDuration(undefined)).toBeNull();
+  });
+});
