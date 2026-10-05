@@ -36,6 +36,9 @@ export function buildAuthUrl(cfg: AnalyticsConfig, state: string): string {
     prompt: "select_account consent",
     state,
   });
+  // Only offer Workspace accounts of the first allowed domain, so a personal Gmail can not be picked by mistake.
+  const domain = (process.env.ALLOWED_EMAIL_DOMAINS ?? "").split(",")[0]?.trim();
+  if (domain) qs.set("hd", domain);
   return `${AUTH_URL}?${qs}`;
 }
 
