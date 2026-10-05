@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { authDisabled, currentUser, signOut } from "@/auth";
 import { Nav } from "@/components/Nav";
+import { RadarAI } from "@/components/RadarAI";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Nav className="mobile-nav" />
         <main className="main">{children}</main>
       </div>
+      <RadarAI />
     </div>
   );
 }
