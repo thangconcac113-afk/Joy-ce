@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Img } from "./Img";
 import { useLive } from "./useLive";
 import { ago, PLATFORM_LABEL } from "./format";
 
@@ -131,8 +132,7 @@ export function Channels({ connected, connectError }: { connected?: string; conn
                   <tr key={a.id}>
                     <td>
                       <div className="who">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {a.avatarUrl ? <img className="avatar" src={a.avatarUrl} alt="" /> : <span className="avatar" />}
+                        <Img className="avatar" src={a.avatarUrl} />
                         <div>
                           <div style={{ fontWeight: 600 }}>{a.title}</div>
                           {a.handle && <div className="muted">{a.handle}</div>}

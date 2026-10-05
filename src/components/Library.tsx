@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { VideoRow } from "@/lib/metrics";
 import { Filters, toQuery, type FilterState } from "./Filters";
+import { Img } from "./Img";
 import { useLive } from "./useLive";
 import { date, duration, fmt, signed } from "./format";
 
@@ -60,10 +61,8 @@ export function Library() {
             <a key={v.id} className="tile" href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
               <div className="tile-media">
                 {/* Vertical TikTok covers sit inside the same 16:9 frame over a blurred fill, so the grid stays even. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {v.thumbnailUrl && v.platform === "tiktok" && <img className="blur" src={v.thumbnailUrl} alt="" loading="lazy" aria-hidden />}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {v.thumbnailUrl && <img className={v.platform === "tiktok" ? "fg" : undefined} src={v.thumbnailUrl} alt="" loading="lazy" />}
+                {v.thumbnailUrl && v.platform === "tiktok" && <Img className="blur" src={v.thumbnailUrl} />}
+                {v.thumbnailUrl && <Img className={v.platform === "tiktok" ? "fg" : undefined} src={v.thumbnailUrl} />}
                 {v.viewsGained > 0 && <span className="tile-trend">{signed(v.viewsGained)} today</span>}
                 {duration(v.durationSec) && <span className="tile-badge">{duration(v.durationSec)}</span>}
               </div>

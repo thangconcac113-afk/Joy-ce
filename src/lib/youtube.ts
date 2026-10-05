@@ -109,6 +109,14 @@ export function parseDuration(iso: string | undefined): number | null {
   return d * 86400 + h * 3600 + mi * 60 + s;
 }
 
+/**
+ * Every video gets a thumbnail: the 480px "high" image (its 4:3 letterbox crops away
+ * cleanly in a 16:9 frame), else medium, else the predictable i.ytimg.com URL.
+ */
+export function videoThumbnail(id: string, thumbs?: Record<string, { url?: string } | undefined>): string {
+  return thumbs?.high?.url ?? thumbs?.medium?.url ?? `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
+}
+
 /** Most recent uploads (newest first) with their current statistics. */
 export async function fetchRecentVideos(
   uploadsPlaylistId: string,
@@ -127,7 +135,7 @@ export async function fetchRecentVideos(
   const res = await call<{
     items?: {
       id: string;
-      snippet?: { title?: string; publishedAt?: string; thumbnails?: { medium?: { url?: string } } };
+      snippet?: { title?: string; publishedAt?: string; thumbnails?: Record<string, { url?: string } | undefined> };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
       contentDetails?: { duration?: string };
     }[];
@@ -136,7 +144,7 @@ export async function fetchRecentVideos(
     id: v.id,
     title: v.snippet?.title ?? v.id,
     publishedAt: v.snippet?.publishedAt ?? null,
-    thumbnailUrl: v.snippet?.thumbnails?.medium?.url ?? null,
+    thumbnailUrl: videoThumbnail(v.id, v.snippet?.thumbnails),
     durationSec: parseDuration(v.contentDetails?.duration),
     views: num(v.statistics?.viewCount) ?? 0,
     likes: num(v.statistics?.likeCount),

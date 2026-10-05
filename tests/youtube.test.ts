@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChannelInput, parseDuration } from "@/lib/youtube";
+import { parseChannelInput, parseDuration, videoThumbnail } from "@/lib/youtube";
 
 describe("parseChannelInput", () => {
   it("accepts handles, IDs and URLs", () => {
@@ -22,5 +22,13 @@ describe("parseDuration", () => {
     expect(parseDuration("PT4H33M46S")).toBe(16426);
     expect(parseDuration("P1DT1M")).toBe(86460);
     expect(parseDuration(undefined)).toBeNull();
+  });
+});
+
+describe("videoThumbnail", () => {
+  it("prefers the high-resolution image and always returns one", () => {
+    expect(videoThumbnail("abc", { high: { url: "https://h" }, medium: { url: "https://m" } })).toBe("https://h");
+    expect(videoThumbnail("abc", { medium: { url: "https://m" } })).toBe("https://m");
+    expect(videoThumbnail("abc", undefined)).toBe("https://i.ytimg.com/vi/abc/hqdefault.jpg");
   });
 });

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AccountRow, Dashboard, RangeKey } from "@/lib/metrics";
 import type { FilterState } from "./Filters";
 import { toQuery } from "./Filters";
+import { Img } from "./Img";
 import { Kpi } from "./Kpi";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "./TrendChart";
@@ -12,6 +13,7 @@ import { ago, fmt, fmtFull, PLATFORM_LABEL, shortDate, signed } from "./format";
 
 const PERIOD: Record<RangeKey, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
 const RANGE_SHORT: Record<RangeKey, string> = { "24h": "24h", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
+const RANGE_MS: Record<RangeKey, number> = { "24h": 86400_000, "7d": 7 * 86400_000, "30d": 30 * 86400_000, "90d": 90 * 86400_000 };
 const color = (p: "youtube" | "tiktok") => (p === "youtube" ? "var(--series-yt)" : "var(--series-tt)");
 
 export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; onSynced: () => void }) {
@@ -58,8 +60,7 @@ function ChannelCard({ a, trend, selected, onSelect, period }: { a: AccountRow; 
   return (
     <button type="button" className="ch-card card" aria-pressed={selected} onClick={onSelect} title={selected ? "Show all channels" : `Focus the dashboard on ${a.title}`}>
       <div className="ch-top">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {a.avatarUrl ? <img className="avatar" src={a.avatarUrl} alt="" /> : <span className="avatar" />}
+        <Img className="avatar" src={a.avatarUrl} />
         <div className="ch-name">
           <b>{a.title}</b>
           <span className="platform-tag">
@@ -159,6 +160,16 @@ export function Overview() {
         </div>
       )}
 
+      {data?.trackingSince && new Date(data.trackingSince).getTime() > new Date(data.generatedAt).getTime() - RANGE_MS[f.range] && (
+        <div className="banner info">
+          <span>
+            Tracking started {new Date(data.trackingSince).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Growth
+            before that can&apos;t be measured, so this period is incomplete: videos published in it count with all their views, and the charts fill in as
+            new syncs arrive.
+          </span>
+        </div>
+      )}
+
       {data && (
         <div className={loading ? "refetching" : undefined}>
           <div className="kpis">
@@ -213,8 +224,7 @@ export function Overview() {
                   <li key={v.id}>
                     <a href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
                       <span className="rank">{i + 1}</span>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      {v.thumbnailUrl ? <img className="tthumb" src={v.thumbnailUrl} alt="" loading="lazy" /> : <span className="tthumb" />}
+                      <Img className="tthumb" src={v.thumbnailUrl} />
                       <span className="tinfo">
                         <span className="ttitle">{v.title}</span>
                         <span className="tmeta">

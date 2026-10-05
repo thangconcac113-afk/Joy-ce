@@ -55,6 +55,8 @@ export interface Dashboard {
   generatedAt: string;
   filters: { range: RangeKey; platform: PlatformFilter; accountId: number | null };
   lastPoll: { finishedAt: string | null; accountsOk: number; accountsFailed: number } | null;
+  /** Earliest snapshot in scope: before this, growth can't be measured. */
+  trackingSince: string | null;
   kpis: {
     followers: number;
     followersGained: number;
@@ -265,7 +267,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
   const prevStart = new Date(start.getTime() - span);
   const unit = f.range === "24h" ? "hour" : "day";
 
-  const [cur, prev, fol, folPrev, accts, published, publishedPrev, viewsRaw, follRaw, lastPoll] = await Promise.all([
+  const [cur, prev, fol, folPrev, accts, published, publishedPrev, viewsRaw, follRaw, lastPoll, since] = await Promise.all([
     rows<RawVideo>(db, videoGainsQuery(f, start, now)),
     rows<RawVideo>(db, videoGainsQuery(f, prevStart, start)),
     rows<{ id: number; followers: string | null; gained: string | null }>(db, followerQuery(f, start, now)),
@@ -290,6 +292,10 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
     rows<{ finished_at: string | Date | null; accounts_ok: number; accounts_failed: number }>(
       db,
       sql`select finished_at, accounts_ok, accounts_failed from poll_runs where finished_at is not null order by id desc limit 1`,
+    ),
+    rows<{ t: string | Date | null }>(
+      db,
+      sql`select min(s.taken_at) as t from account_snapshots s join accounts a on a.id = s.account_id where ${scope(f, { account: "a" })}`,
     ),
   ]);
 
@@ -325,6 +331,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
     lastPoll: lastPoll[0]
       ? { finishedAt: toIso(lastPoll[0].finished_at), accountsOk: lastPoll[0].accounts_ok, accountsFailed: lastPoll[0].accounts_failed }
       : null,
+    trackingSince: toIso(since[0]?.t ?? null),
     kpis: {
       followers: sum(accounts.map((a) => a.followers ?? 0)),
       followersGained: sum(fol.map((r) => num(r.gained))),
