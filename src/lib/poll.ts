@@ -3,7 +3,7 @@ import type { Db } from "@/db/client";
 import { accounts, accountSnapshots, oauthStates, pollRuns, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
 import { decrypt, encrypt } from "./crypto";
 import { fetchVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
-import { fetchChannels, fetchRecentVideos, type FetchFn } from "./youtube";
+import { fetchChannels, fetchRecentVideos, parseChannelInput, resolveChannel, type FetchFn } from "./youtube";
 
 export interface PollOptions {
   now?: Date;
@@ -12,6 +12,8 @@ export interface PollOptions {
   tiktok?: TikTokConfig | null;
   /** Recent videos tracked per account. */
   videosPerAccount?: number;
+  /** Channels that must always be tracked (defaults to the YOUTUBE_CHANNELS env var). */
+  configuredChannels?: string[];
 }
 
 export interface PollResult {
@@ -166,6 +168,40 @@ async function fail(db: Db, account: Account, e: unknown, result: PollResult) {
   await db.update(accounts).set({ lastError: msg.slice(0, 500) }).where(eq(accounts.id, account.id));
 }
 
+/** YOUTUBE_CHANNELS: comma-separated @handles, channel IDs or URLs. */
+export function configuredYouTubeChannels(): string[] {
+  return (process.env.YOUTUBE_CHANNELS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Adds configured channels that are not tracked yet, so a fresh deployment fills
+ * itself without anyone using the Channels page. Costs 1 quota unit per new channel.
+ */
+async function ensureConfiguredChannels(db: Db, inputs: string[], apiKey: string, fetchFn: FetchFn, result: PollResult) {
+  if (inputs.length === 0) return;
+  const existing = await db.select({ externalId: accounts.externalId, handle: accounts.handle }).from(accounts).where(eq(accounts.platform, "youtube"));
+  const ids = new Set(existing.map((a) => a.externalId));
+  const handles = new Set(existing.map((a) => a.handle?.toLowerCase()).filter(Boolean));
+  for (const input of inputs) {
+    try {
+      const parsed = parseChannelInput(input);
+      if ("id" in parsed ? ids.has(parsed.id) : handles.has(parsed.handle.toLowerCase())) continue;
+      const ch = await resolveChannel(input, apiKey, fetchFn);
+      await db
+        .insert(accounts)
+        .values({ platform: "youtube", externalId: ch.id, title: ch.title, handle: ch.handle, avatarUrl: ch.avatarUrl, uploadsPlaylistId: ch.uploadsPlaylistId })
+        .onConflictDoNothing();
+      ids.add(ch.id);
+      if (ch.handle) handles.add(ch.handle.toLowerCase());
+    } catch (e) {
+      result.errors.push({ accountId: 0, title: input, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+}
+
 export async function pollAll(db: Db, options: PollOptions = {}): Promise<PollResult> {
   const now = options.now ?? new Date();
   const fetchFn = options.fetchFn ?? fetch;
@@ -175,6 +211,7 @@ export async function pollAll(db: Db, options: PollOptions = {}): Promise<PollRe
   const result: PollResult = { accountsOk: 0, accountsFailed: 0, videosUpdated: 0, errors: [] };
 
   const [run] = await db.insert(pollRuns).values({ startedAt: now }).returning({ id: pollRuns.id });
+  if (apiKey) await ensureConfiguredChannels(db, options.configuredChannels ?? configuredYouTubeChannels(), apiKey, fetchFn, result);
   const all = await db.select().from(accounts);
   const byPlatform = (p: Platform) => all.filter((a) => a.platform === p);
 

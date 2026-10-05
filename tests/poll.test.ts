@@ -74,7 +74,7 @@ describe("poll + dashboard", () => {
 
   it("collects both platforms and computes gains between polls", async () => {
     const opts = { youtubeApiKey: "k", tiktok: { clientKey: "c", clientSecret: "s", redirectUri: "https://x/cb" } };
-    const r0 = await pollAll(db, { ...opts, now: t0, fetchFn: fakeApis(state) });
+    const r0 = await pollAll(db, { ...opts, configuredChannels: [], now: t0, fetchFn: fakeApis(state) });
     expect(r0).toMatchObject({ accountsOk: 2, accountsFailed: 0, videosUpdated: 3 });
     expect(state.refreshed).toBe(1);
 
@@ -82,7 +82,7 @@ describe("poll + dashboard", () => {
     state.ttViews += 50;
     state.subs += 20;
     state.ttFollowers += 5;
-    const r1 = await pollAll(db, { ...opts, now: t1, fetchFn: fakeApis(state) });
+    const r1 = await pollAll(db, { ...opts, configuredChannels: [], now: t1, fetchFn: fakeApis(state) });
     expect(r1.accountsOk).toBe(2);
     expect(state.refreshed).toBe(1); // refreshed token is reused, not refreshed again
 
@@ -108,9 +108,30 @@ describe("poll + dashboard", () => {
     expect(lib.items[0].viewsGained).toBe(50);
   });
 
+  it("adds channels from YOUTUBE_CHANNELS once, then reuses them", async () => {
+    const fresh = await openPglite("memory://");
+    let channelLookups = 0;
+    const base = fakeApis({ ytViews: 1, ttViews: 1, subs: 1, ttFollowers: 1, refreshed: 0 });
+    const counting = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/channels") && url.searchParams.get("forHandle")) {
+        channelLookups++;
+        expect(url.searchParams.get("forHandle")).toBe("@TeamSecret");
+      }
+      return base(input, init);
+    }) as typeof fetch;
+    const opts = { youtubeApiKey: "k", tiktok: null, fetchFn: counting, configuredChannels: ["https://www.youtube.com/@TeamSecret/videos"] };
+    await pollAll(fresh, { ...opts, now: t0 });
+    await pollAll(fresh, { ...opts, now: t1 });
+    const rows = await fresh.select().from(accounts);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ title: "Team Secret", handle: "@teamsecret" });
+    expect(channelLookups).toBe(1); // known handle is matched case-insensitively, no repeat lookup
+  });
+
   it("records a per-account error instead of failing the run", async () => {
     const broken = (async () => json({ error: { message: "quotaExceeded" } }, 403)) as typeof fetch;
-    const r = await pollAll(db, { youtubeApiKey: "k", tiktok: null, now: new Date("2026-10-05T12:00:00Z"), fetchFn: broken });
+    const r = await pollAll(db, { youtubeApiKey: "k", tiktok: null, configuredChannels: [], now: new Date("2026-10-05T12:00:00Z"), fetchFn: broken });
     expect(r.accountsFailed).toBe(2);
     const [yt] = await db.select().from(accounts).where(eq(accounts.platform, "youtube"));
     expect(yt.lastError).toContain("quotaExceeded");

@@ -56,7 +56,17 @@ Tables are created automatically on first start.
 
 ### 3. YouTube
 In the same Google Cloud project, enable **YouTube Data API v3** and create an
-**API key** (restrict it to that API). Set `YOUTUBE_API_KEY`.
+**API key** (restrict it to that API). Set `YOUTUBE_API_KEY`. One key covers every
+channel: the app only reads public statistics, so no per-channel key or login is needed.
+
+`YOUTUBE_CHANNELS` lists the channels to track from the first sync:
+
+```
+YOUTUBE_CHANNELS=@TeamSecret,@TeamSecretLOL,@TeamSecretAOV
+```
+
+These are re-added on every sync, so to stop tracking one, remove it from this list
+as well as from the Channels page. Other channels can be added on the Channels page.
 
 ### 4. TikTok
 1. Create an app at [developers.tiktok.com](https://developers.tiktok.com) with

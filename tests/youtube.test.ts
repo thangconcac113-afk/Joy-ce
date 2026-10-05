@@ -6,6 +6,7 @@ describe("parseChannelInput", () => {
     expect(parseChannelInput("@TeamSecret")).toEqual({ handle: "@TeamSecret" });
     expect(parseChannelInput("TeamSecret")).toEqual({ handle: "@TeamSecret" });
     expect(parseChannelInput("https://www.youtube.com/@teamsecret/videos")).toEqual({ handle: "@teamsecret" });
+    expect(parseChannelInput("https://www.youtube.com/@TeamSecretAOV/videos")).toEqual({ handle: "@TeamSecretAOV" });
     const id = "UC" + "a".repeat(22);
     expect(parseChannelInput(id)).toEqual({ id });
     expect(parseChannelInput(`https://youtube.com/channel/${id}`)).toEqual({ id });
