@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TS Creative Pulse",
+  title: "TS Video Tracker",
   description: "Live YouTube and TikTok performance for the Team Secret creative team.",
   robots: { index: false, follow: false },
 };

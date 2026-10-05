@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="brand-mark" aria-hidden>
             TS
           </span>
-          Creative Pulse
+          Video Tracker
         </div>
         <Nav className="nav" />
         <div className="sidebar-foot">

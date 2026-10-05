@@ -1,4 +1,4 @@
-# TS Creative Pulse
+# TS Video Tracker
 
 Live YouTube and TikTok performance for the Team Secret creative team: one place to see
 followers, views gained, engagements and top videos across every Team Secret channel,

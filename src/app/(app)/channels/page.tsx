@@ -1,6 +1,6 @@
 import { Channels } from "@/components/Channels";
 
-export const metadata = { title: "Channels · TS Creative Pulse" };
+export const metadata = { title: "Channels · TS Video Tracker" };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;

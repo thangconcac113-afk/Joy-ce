@@ -11,7 +11,7 @@ export function GET(req: Request) {
     const f = parseFilters(new URL(req.url));
     const d = await getDashboard(await getDb(), f);
     const out = [
-      line([`TS Creative Pulse report`, `range ${f.range}`, `platform ${f.platform}`, `generated ${d.generatedAt}`]),
+      line([`TS Video Tracker report`, `range ${f.range}`, `platform ${f.platform}`, `generated ${d.generatedAt}`]),
       "",
       line(["Channel", "Platform", "Followers", "Followers gained", "Views gained", "Engagements gained", "Videos published"]),
       ...d.accounts.map((a) => line([a.title, a.platform, a.followers, a.followersGained, a.viewsGained, a.engagementsGained, a.videosPublished])),
@@ -22,7 +22,7 @@ export function GET(req: Request) {
     return new Response("﻿" + out, {
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="ts-creative-pulse-${f.range}.csv"`,
+        "content-disposition": `attachment; filename="ts-video-tracker-${f.range}.csv"`,
       },
     });
   });

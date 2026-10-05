@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser, signIn } from "@/auth";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Sign in · TS Creative Pulse" };
+export const metadata = { title: "Sign in · TS Video Tracker" };
 
 export default async function SignIn({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (await currentUser()) redirect("/");
@@ -14,7 +14,7 @@ export default async function SignIn({ searchParams }: { searchParams: Promise<{
           <span className="brand-mark" aria-hidden>
             TS
           </span>
-          Creative Pulse
+          Video Tracker
         </div>
         <p className="muted" style={{ margin: 0 }}>
           Live YouTube and TikTok performance for the Team Secret creative team.
