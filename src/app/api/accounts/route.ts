@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { accounts } from "@/db/schema";
@@ -22,12 +22,18 @@ export function GET() {
         lastPolledAt: accounts.lastPolledAt,
         lastError: accounts.lastError,
         refreshTokenExpiresAt: accounts.refreshTokenExpiresAt,
+        analyticsError: accounts.analyticsError,
+        analyticsConnected: sql<boolean>`${accounts.platform} = 'youtube' and ${accounts.refreshTokenEnc} is not null`,
       })
       .from(accounts)
       .orderBy(asc(accounts.platform), asc(accounts.title));
     return NextResponse.json({
       accounts: rows,
-      config: { youtube: Boolean(process.env.YOUTUBE_API_KEY), tiktok: Boolean(tiktokConfig()) },
+      config: {
+        youtube: Boolean(process.env.YOUTUBE_API_KEY),
+        tiktok: Boolean(tiktokConfig()),
+        analytics: Boolean(process.env.AUTH_GOOGLE_ID && process.env.TOKEN_ENCRYPTION_KEY),
+      },
     });
   });
 }

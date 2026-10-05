@@ -28,6 +28,9 @@ export interface VideoRow {
   shares: number;
   viewsGained: number;
   engagementsGained: number;
+  /** YouTube Analytics (owner-only), last 28 days. Null until the channel manager connects Analytics. */
+  avdSec: number | null;
+  ctr: number | null;
 }
 
 export interface AccountRow {
@@ -68,6 +71,8 @@ export interface Dashboard {
     videosPublished: number;
     videosPublishedPrev: number;
   };
+  /** Owner-only YouTube Analytics for the selected channels. 24h uses the 7-day window (Analytics is daily). */
+  analytics: { rangeKey: "7d" | "30d" | "90d"; avdSec: number | null; ctr: number | null; impressions: number | null; connected: number; total: number };
   bucket: "hour" | "day";
   viewsSeries: SeriesPoint[];
   followersSeries: SeriesPoint[];
@@ -102,7 +107,7 @@ function videoGainsQuery(f: Filters, start: Date, end: Date): SQL {
   return sql`
     select v.id, v.account_id, a.title as account_title, a.platform, v.title, v.url, v.thumbnail_url,
       v.published_at, v.duration_sec,
-      last.views, last.likes, last.comments, last.shares,
+      last.views, last.likes, last.comments, last.shares, va.avd_sec, va.ctr,
       greatest(last.views - coalesce(base.views,
         case when v.published_at >= ${iso(start)}::timestamptz then 0 end, first.views, last.views), 0) as views_gained,
       greatest(
@@ -111,6 +116,7 @@ function videoGainsQuery(f: Filters, start: Date, end: Date): SQL {
           coalesce(last.likes,0) + coalesce(last.comments,0) + coalesce(last.shares,0)), 0) as engagements_gained
     from videos v
     join accounts a on a.id = v.account_id
+    left join video_analytics va on va.video_id = v.id
     join lateral (
       select views, likes, comments, shares from video_snapshots s
       where s.video_id = v.id and s.taken_at <= ${iso(end)}::timestamptz
@@ -142,6 +148,8 @@ interface RawVideo {
   shares: number | string | null;
   views_gained: number | string;
   engagements_gained: number | string;
+  avd_sec: number | null;
+  ctr: number | null;
 }
 
 const toIso = (v: string | Date | null) => (v === null ? null : new Date(v).toISOString());
@@ -163,6 +171,8 @@ function toVideo(r: RawVideo): VideoRow {
     shares: num(r.shares),
     viewsGained: num(r.views_gained),
     engagementsGained: num(r.engagements_gained),
+    avdSec: r.avd_sec ?? null,
+    ctr: r.ctr ?? null,
   };
 }
 
@@ -258,6 +268,33 @@ function fillSeries(raw: SeriesRaw[], start: Date, end: Date, unit: "hour" | "da
   return [...map.values()];
 }
 
+const analyticsKey = (r: RangeKey) => (r === "24h" ? "7d" : r);
+
+/** AVD is weighted by views and CTR by impressions, so a big channel counts for more than a small one. */
+function analyticsSummary(range: RangeKey, rs: { views: number | null; impressions: number | null; ctr: number | null; avd_sec: number | null }[], total: number): Dashboard["analytics"] {
+  const weighted = (value: (r: (typeof rs)[number]) => number | null, weight: (r: (typeof rs)[number]) => number | null) => {
+    let sum = 0;
+    let w = 0;
+    for (const r of rs) {
+      const v = value(r);
+      const x = weight(r);
+      if (v == null || !x) continue;
+      sum += v * num(x);
+      w += num(x);
+    }
+    return w ? sum / w : null;
+  };
+  const impressions = rs.some((r) => r.impressions != null) ? rs.reduce((s, r) => s + num(r.impressions), 0) : null;
+  return {
+    rangeKey: analyticsKey(range),
+    avdSec: weighted((r) => r.avd_sec, (r) => r.views),
+    ctr: weighted((r) => r.ctr, (r) => r.impressions),
+    impressions,
+    connected: rs.length,
+    total,
+  };
+}
+
 export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
   // Postgres date_trunc uses the session time zone; keep buckets in UTC.
   await db.execute(sql`set time zone 'UTC'`);
@@ -267,7 +304,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
   const prevStart = new Date(start.getTime() - span);
   const unit = f.range === "24h" ? "hour" : "day";
 
-  const [cur, prev, fol, folPrev, accts, published, publishedPrev, viewsRaw, follRaw, lastPoll, since] = await Promise.all([
+  const [cur, prev, fol, folPrev, accts, published, publishedPrev, viewsRaw, follRaw, lastPoll, since, anRows] = await Promise.all([
     rows<RawVideo>(db, videoGainsQuery(f, start, now)),
     rows<RawVideo>(db, videoGainsQuery(f, prevStart, start)),
     rows<{ id: number; followers: string | null; gained: string | null }>(db, followerQuery(f, start, now)),
@@ -296,6 +333,11 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
     rows<{ t: string | Date | null }>(
       db,
       sql`select min(s.taken_at) as t from account_snapshots s join accounts a on a.id = s.account_id where ${scope(f, { account: "a" })}`,
+    ),
+    rows<{ views: number | null; impressions: number | null; ctr: number | null; avd_sec: number | null }>(
+      db,
+      sql`select ca.views, ca.impressions, ca.ctr, ca.avd_sec from channel_analytics ca join accounts a on a.id = ca.account_id
+          where ca.range_key = ${analyticsKey(f.range)} and ${scope(f, { account: "a" })}`,
     ),
   ]);
 
@@ -332,6 +374,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
       ? { finishedAt: toIso(lastPoll[0].finished_at), accountsOk: lastPoll[0].accounts_ok, accountsFailed: lastPoll[0].accounts_failed }
       : null,
     trackingSince: toIso(since[0]?.t ?? null),
+    analytics: analyticsSummary(f.range, anRows, accts.filter((a) => a.platform === "youtube").length),
     kpis: {
       followers: sum(accounts.map((a) => a.followers ?? 0)),
       followersGained: sum(fol.map((r) => num(r.gained))),

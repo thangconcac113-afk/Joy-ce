@@ -2,7 +2,7 @@ import { fmt, fmtFull, pctChange } from "./format";
 import { Sparkline } from "./Sparkline";
 import { useI18n } from "./I18n";
 
-export function Kpi({ label, value, current, previous, period, hint, note, compareLabel, trend, trendColor = "var(--muted)" }: { label: string; value: number; current: number; previous: number; period: string; hint?: string; note?: string; compareLabel?: string; trend?: number[]; trendColor?: string }) {
+export function Kpi({ label, value, current, previous, period, hint, note, compareLabel, trend, trendColor = "var(--muted)", valueText, noDelta }: { valueText?: string; noDelta?: boolean; label: string; value: number; current: number; previous: number; period: string; hint?: string; note?: string; compareLabel?: string; trend?: number[]; trendColor?: string }) {
   const { t } = useI18n();
   const pct = pctChange(current, previous);
   const dir = pct === null || Math.abs(pct) < 0.5 ? "flat" : pct > 0 ? "up" : "down";
@@ -11,12 +11,12 @@ export function Kpi({ label, value, current, previous, period, hint, note, compa
       <div className="kpi-label">{label}</div>
       <div className="kpi-row">
         <div className="kpi-value" title={fmtFull(value)}>
-          {fmt(value)}
+          {valueText ?? fmt(value)}
         </div>
         {trend && <Sparkline values={trend} color={trendColor} label={`${label} trend`} />}
       </div>
       {note && <div className="kpi-note">{note}</div>}
-      <div className={`delta ${dir}`}>
+      {!noDelta && <div className={`delta ${dir}`}>
         {pct === null ? (
           <span>{t("No data for the previous period")}</span>
         ) : (
@@ -26,7 +26,7 @@ export function Kpi({ label, value, current, previous, period, hint, note, compa
             <small>{compareLabel ?? t("vs previous {period}", { period })}</small>
           </>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

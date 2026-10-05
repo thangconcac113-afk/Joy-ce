@@ -4,6 +4,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  real,
   serial,
   text,
   timestamp,
@@ -30,6 +31,8 @@ export const accounts = pgTable(
     refreshTokenEnc: text("refresh_token_enc"),
     accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
     refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    /** YouTube only: set when the channel owner connected YouTube Analytics (refresh_token_enc then holds the Google refresh token). */
+    analyticsError: text("analytics_error"),
     lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -91,6 +94,40 @@ export const videoSnapshots = pgTable(
   },
   (t) => [index("video_snapshots_video_taken_idx").on(t.videoId, t.takenAt)],
 );
+
+/** YouTube Analytics (owner-only data: AVD, CTR). One row per channel and look-back window. */
+export const channelAnalytics = pgTable(
+  "channel_analytics",
+  {
+    id: serial("id").primaryKey(),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    /** "7d" | "30d" | "90d" */
+    rangeKey: text("range_key").notNull(),
+    views: bigint("views", { mode: "number" }),
+    impressions: bigint("impressions", { mode: "number" }),
+    /** Click-through rate in percent, as returned by YouTube. */
+    ctr: real("ctr"),
+    avdSec: real("avd_sec"),
+    avgViewPct: real("avg_view_pct"),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex("channel_analytics_uq").on(t.accountId, t.rangeKey)],
+);
+
+/** Same metrics per video, over the last 28 days. */
+export const videoAnalytics = pgTable("video_analytics", {
+  videoId: integer("video_id")
+    .primaryKey()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  views: bigint("views", { mode: "number" }),
+  impressions: bigint("impressions", { mode: "number" }),
+  ctr: real("ctr"),
+  avdSec: real("avd_sec"),
+  avgViewPct: real("avg_view_pct"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+});
 
 /** One row per poll run, so the UI can show freshness and failures. */
 export const pollRuns = pgTable("poll_runs", {

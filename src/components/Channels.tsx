@@ -16,11 +16,13 @@ interface AccountsResponse {
     lastPolledAt: string | null;
     lastError: string | null;
     refreshTokenExpiresAt: string | null;
+    analyticsConnected: boolean;
+    analyticsError: string | null;
   }[];
-  config: { youtube: boolean; tiktok: boolean };
+  config: { youtube: boolean; tiktok: boolean; analytics: boolean };
 }
 
-export function Channels({ connected, connectError }: { connected?: string; connectError?: string }) {
+export function Channels({ connected, connectError, analytics }: { connected?: string; connectError?: string; analytics?: string }) {
   const { t, ago } = useI18n();
   const { data, error, reload } = useLive<AccountsResponse>("/api/accounts", 60_000);
   const [input, setInput] = useState("");
@@ -57,6 +59,7 @@ export function Channels({ connected, connectError }: { connected?: string; conn
         </div>
       </div>
       {connected && <div className="banner ok">{t("Connected TikTok account {name}.", { name: connected })}</div>}
+      {analytics && <div className="banner ok">{t("YouTube Analytics connected for {name}. AVD and CTR appear after the next sync.", { name: analytics })}</div>}
       {connectError && (
         <div className="banner" role="alert">
           {connectError}
@@ -155,9 +158,16 @@ export function Channels({ connected, connectError }: { connected?: string; conn
                       ) : (
                         <span className="muted">{t("Waiting for first sync")}</span>
                       )}
+                      {a.platform === "youtube" && a.analyticsConnected && !a.analyticsError && <div className="status-ok">{t("✓ YouTube Analytics connected")}</div>}
+                      {a.platform === "youtube" && a.analyticsError && <div className="err">⚠ {a.analyticsError}</div>}
                       {a.platform === "tiktok" && expiring && <div className="err">{t("Authorisation expires soon. Reconnect this account.")}</div>}
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      {a.platform === "youtube" && data.config.analytics && (
+                        <a className="btn" href="/api/youtube/connect" style={{ marginRight: 8 }}>
+                          {a.analyticsConnected ? t("Reconnect Analytics") : t("Connect Analytics")}
+                        </a>
+                      )}
                       <button className="btn btn-danger" type="button" onClick={() => remove(a.id, a.title)}>
                         {t("Remove")}
                       </button>

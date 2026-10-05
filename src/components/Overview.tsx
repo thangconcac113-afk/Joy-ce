@@ -9,7 +9,7 @@ import { Kpi } from "./Kpi";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "./TrendChart";
 import { useLive } from "./useLive";
-import { fmt, fmtFull, PLATFORM_LABEL, signed } from "./format";
+import { duration, fmt, fmtFull, PLATFORM_LABEL, signed } from "./format";
 import { useI18n } from "./I18n";
 
 const PERIOD: Record<RangeKey, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
@@ -96,6 +96,14 @@ function ChannelCard({ a, trend, selected, onSelect, period }: { a: AccountRow; 
 
 export function Overview() {
   const { t, tag, ago, shortDate } = useI18n();
+  const analyticsNote = (a: Dashboard["analytics"], tiktokOnly: boolean) =>
+    tiktokOnly
+      ? t("YouTube only")
+      : a.connected === 0
+        ? t("Not connected. Connect YouTube Analytics on the Channels page.")
+        : a.connected < a.total
+          ? t("{n} of {m} YouTube channels connected", { n: a.connected, m: a.total })
+          : t("Last {days} days", { days: a.rangeKey.slice(0, -1) });
   const [f, setF] = useState<FilterState>({ range: "7d", platform: "all", account: null });
   const [metric, setMetric] = useState<"views" | "followers">("views");
   const [channelView, setChannelView] = useState<"cards" | "table">("cards");
@@ -191,6 +199,28 @@ export function Overview() {
             />
             <Kpi label={t("Views gained")} value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel={t("vs prev.")} trend={total(data.viewsSeries)} hint={t("New views on tracked videos during the period.")} />
             <Kpi label={t("Engagements")} value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel={t("vs prev.")} hint={t("New likes + comments + shares on tracked videos.")} />
+            <Kpi
+              label={t("Avg view duration")}
+              value={data.analytics.avdSec ?? 0}
+              valueText={data.analytics.avdSec == null ? "—" : (duration(Math.round(data.analytics.avdSec)) ?? "—")}
+              noDelta
+              note={analyticsNote(data.analytics, f.platform === "tiktok")}
+              current={0}
+              previous={0}
+              period={period}
+              hint={t("Average time watched per view (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
+            />
+            <Kpi
+              label={t("Impressions CTR")}
+              value={data.analytics.ctr ?? 0}
+              valueText={data.analytics.ctr == null ? "—" : `${data.analytics.ctr.toFixed(1)}%`}
+              noDelta
+              note={data.analytics.impressions == null ? analyticsNote(data.analytics, f.platform === "tiktok") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
+              current={0}
+              previous={0}
+              period={period}
+              hint={t("How often people click a thumbnail after seeing it (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
+            />
             <Kpi label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
 

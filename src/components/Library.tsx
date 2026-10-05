@@ -75,6 +75,13 @@ export function Library() {
               <div className="tile-title">{v.title}</div>
               <div className="tile-stats">
                 <span>{date(v.publishedAt)}</span>
+                {(v.avdSec != null || v.ctr != null) && (
+                  <span title={t("YouTube Analytics, last 28 days")}>
+                    {v.avdSec != null && `${t("AVD")} ${duration(Math.round(v.avdSec))}`}
+                    {v.avdSec != null && v.ctr != null && " · "}
+                    {v.ctr != null && `${t("CTR")} ${v.ctr.toFixed(1)}%`}
+                  </span>
+                )}
                 <span>
                   {t("{views} views · {likes} likes", { views: fmt(v.views), likes: fmt(v.likes) })}
                 </span>

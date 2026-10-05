@@ -1,8 +1,9 @@
-import { eq, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { accounts, accountSnapshots, oauthStates, pollRuns, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
+import { accounts, accountSnapshots, channelAnalytics, oauthStates, pollRuns, videoAnalytics, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
 import { decrypt, encrypt } from "./crypto";
 import { fetchVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
+import { analyticsConfig, fetchChannelStats, fetchVideoStats, myChannelId, refreshAccessToken } from "./ytAnalytics";
 import { fetchChannels, fetchRecentVideos, parseChannelInput, resolveChannel, type FetchFn } from "./youtube";
 
 export interface PollOptions {
@@ -161,6 +162,42 @@ async function pollTikTok(db: Db, list: Account[], cfg: TikTokConfig, fetchFn: F
   }
 }
 
+const ANALYTICS_EVERY_MS = 6 * 3600_000;
+const ANALYTICS_RANGES = [7, 30, 90];
+
+/** Owner-only YouTube Analytics (AVD, CTR) for channels whose manager connected them. The data lags ~2 days, so every 6 hours is plenty. */
+async function pollAnalytics(db: Db, list: Account[], fetchFn: FetchFn, now: Date, result: PollResult) {
+  const cfg = analyticsConfig("");
+  if (!cfg) return;
+  for (const account of list.filter((a) => a.refreshTokenEnc)) {
+    try {
+      const [last] = await db.select({ at: sql<string | null>`max(${channelAnalytics.fetchedAt})` }).from(channelAnalytics).where(eq(channelAnalytics.accountId, account.id));
+      if (last?.at && now.getTime() - new Date(last.at).getTime() < ANALYTICS_EVERY_MS) continue;
+      const access = await refreshAccessToken(cfg, decrypt(account.refreshTokenEnc!), fetchFn);
+      // Re-check which channel this token really owns before trusting its numbers.
+      if ((await myChannelId(access, fetchFn)) !== account.externalId) throw new Error("The connected Google account no longer owns this channel. Reconnect it.");
+      for (const days of ANALYTICS_RANGES) {
+        const s = await fetchChannelStats(access, account.externalId, days, now, fetchFn);
+        const row = { accountId: account.id, rangeKey: `${days}d`, ...s, fetchedAt: now };
+        await db.insert(channelAnalytics).values(row).onConflictDoUpdate({ target: [channelAnalytics.accountId, channelAnalytics.rangeKey], set: row });
+      }
+      const perVideo = await fetchVideoStats(access, account.externalId, 28, now, fetchFn);
+      const known = perVideo.size
+        ? await db.select({ id: videos.id, externalId: videos.externalId }).from(videos).where(and(eq(videos.accountId, account.id), inArray(videos.externalId, [...perVideo.keys()])))
+        : [];
+      for (const v of known) {
+        const row = { videoId: v.id, ...perVideo.get(v.externalId)!, fetchedAt: now };
+        await db.insert(videoAnalytics).values(row).onConflictDoUpdate({ target: videoAnalytics.videoId, set: row });
+      }
+      await db.update(accounts).set({ analyticsError: null }).where(eq(accounts.id, account.id));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      result.errors.push({ accountId: account.id, title: `${account.title} (analytics)`, error: msg });
+      await db.update(accounts).set({ analyticsError: msg.slice(0, 500) }).where(eq(accounts.id, account.id));
+    }
+  }
+}
+
 async function fail(db: Db, account: Account, e: unknown, result: PollResult) {
   const msg = e instanceof Error ? e.message : String(e);
   result.accountsFailed++;
@@ -228,6 +265,8 @@ export async function pollAll(db: Db, options: PollOptions = {}): Promise<PollRe
       }
     }
   }
+
+  if (yt.length) await pollAnalytics(db, yt, fetchFn, now, result);
 
   const tk = byPlatform("tiktok");
   if (tk.length) {
