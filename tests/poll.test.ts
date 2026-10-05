@@ -95,6 +95,9 @@ describe("poll + dashboard", () => {
     expect(d.topVideos[0]).toMatchObject({ title: "Old video", viewsGained: 300 });
     const hourly = d.viewsSeries.find((p) => p.t === "2026-10-05T11:00:00.000Z");
     expect(hourly).toMatchObject({ youtube: 300, tiktok: 50 });
+    const hourIdx = d.viewsSeries.indexOf(hourly!);
+    const ytAccount = d.accounts.find((a) => a.platform === "youtube")!;
+    expect(d.accountViewsSeries[ytAccount.id][hourIdx]).toBe(300);
 
     const yt = await getDashboard(db, { range: "24h", platform: "youtube", now: new Date("2026-10-05T11:30:00Z") });
     expect(yt.kpis.viewsGained).toBe(300);

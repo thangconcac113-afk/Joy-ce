@@ -4,15 +4,17 @@ Live YouTube and TikTok performance for the Team Secret creative team: one place
 followers, views gained, engagements and top videos across every Team Secret channel,
 in the spirit of Sprout Social but refreshed every few minutes.
 
-![Overview](docs/overview.png)
+![Dashboard](docs/overview.png)
 
 ![Video library](docs/library.png)
 
 ## What it does
 
-- **Overview**: total followers, views gained, engagements and videos published, each
-  compared with the previous period; hourly or daily trend charts per platform; a
-  channel performance table; top videos ranked by views gained.
+- **Dashboard**: every Team Secret channel on one screen, cleaner than opening each
+  channel in YouTube Studio or TikTok. Four headline numbers with trend lines and
+  change vs the previous period; one chart switching between views and followers;
+  "Trending now" with the videos gaining the most views; a card per channel with its
+  own trend. Click a channel card to focus the whole dashboard on that channel.
 - **Video library**: every tracked video as a thumbnail grid, searchable, sortable by
   newest, trending (views gained in 24 h) or most viewed.
 - **Channels**: add YouTube channels by @handle, ID or URL; connect TikTok accounts

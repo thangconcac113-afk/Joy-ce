@@ -65,12 +65,16 @@ export function TrendChart({
   data,
   keys,
   bucket,
+  headerExtra,
+  height = 240,
 }: {
   title: string;
   subtitle: string;
   data: SeriesPoint[];
   keys: Key[];
   bucket: "hour" | "day";
+  headerExtra?: React.ReactNode;
+  height?: number;
 }) {
   const total = (k: Key) => data.reduce((s, p) => s + p[k], 0);
   const lastIndex = data.length - 1;
@@ -80,18 +84,19 @@ export function TrendChart({
         <div>
           <h2 className="card-title">{title}</h2>
           <p className="card-sub">{subtitle}</p>
+          {keys.length > 1 && (
+            <div className="legend">
+              {keys.map((k) => (
+                <span key={k}>
+                  <i className={`key ${SERIES[k].key}`} aria-hidden /> {SERIES[k].label} · {fmt(total(k))}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        {keys.length > 1 && (
-          <div className="legend">
-            {keys.map((k) => (
-              <span key={k}>
-                <i className={`key ${SERIES[k].key}`} aria-hidden /> {SERIES[k].label} · {fmt(total(k))}
-              </span>
-            ))}
-          </div>
-        )}
+        {headerExtra}
       </div>
-      <div style={{ height: 240 }}>
+      <div style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: keys.length > 1 ? 96 : 16, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />

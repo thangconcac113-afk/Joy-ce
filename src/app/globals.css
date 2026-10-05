@@ -133,7 +133,7 @@ button, input, select { font: inherit; color: inherit; }
 .card-title { margin: 0; font-size: 15px; font-weight: 650; }
 .card-sub { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-.legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 14px; font-size: 12.5px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--ink-2); margin-top: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tooltip { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); font-size: 12.5px; min-width: 150px; }
 .tooltip-time { color: var(--muted); margin-bottom: 4px; }
@@ -207,4 +207,49 @@ table.data tbody tr:hover { background: var(--surface-2); }
   .seg { overflow-x: auto; }
   .card-head { flex-direction: column; }
   .legend { justify-content: flex-start; }
+}
+
+/* Dashboard layout */
+.kpi-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+.kpi-row .spark { width: 46%; max-width: 140px; height: 34px; flex: none; }
+.spark { display: block; width: 100%; overflow: visible; }
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 14px; margin-bottom: 18px; }
+.trending { padding: 16px 18px; }
+.link { font-size: 12.5px; font-weight: 600; text-decoration: none; color: var(--ink-2); white-space: nowrap; }
+.link:hover { color: var(--ink); text-decoration: underline; }
+.trend-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.trend-list li a { display: grid; grid-template-columns: 16px 76px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 8px; text-decoration: none; }
+.trend-list li a:hover { background: var(--surface-2); }
+.rank { color: var(--muted); font-weight: 700; font-size: 12px; text-align: center; }
+.tthumb { width: 76px; aspect-ratio: 16 / 9; border-radius: 5px; object-fit: cover; background: var(--surface-2); display: block; }
+.tinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ttitle { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmeta { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbar { height: 4px; border-radius: 0 4px 4px 0; display: block; }
+.tgain { display: flex; flex-direction: column; align-items: flex-end; }
+.tgain b { font-size: 14px; }
+.tgain small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.section-bar { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 10px; }
+.ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.ch-card { text-align: left; cursor: pointer; padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; transition: box-shadow 0.15s, border-color 0.15s; }
+.ch-card:hover { border-color: var(--axis); }
+.ch-card[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.ch-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ch-name { display: flex; flex-direction: column; min-width: 0; }
+.ch-name b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ch-stats > div { display: flex; flex-direction: column; }
+.ch-label { font-size: 11.5px; color: var(--muted); }
+.ch-value { font-size: 19px; font-weight: 650; }
+.ch-sub { font-size: 12px; color: var(--ink-2); }
+.ch-card .spark { height: 36px; }
+.ch-foot { font-size: 11.5px; }
+.chip { border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 6px 12px; font-weight: 600; font-size: 12.5px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.card-head .seg button { padding: 4px 10px; font-size: 12px; }
+@media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
+.tmeta .dot, .platform-tag .dot { flex: none; }
+.section-bar { flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .kpi-row { flex-direction: column; align-items: stretch; gap: 4px; }
+  .kpi-row .spark { width: 100%; max-width: none; height: 28px; }
 }

@@ -32,3 +32,6 @@ export const date = (isoTime: string | null) =>
   isoTime ? new Date(isoTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 export const PLATFORM_LABEL = { youtube: "YouTube", tiktok: "TikTok" } as const;
+
+export const shortDate = (isoTime: string | null) =>
+  isoTime ? new Date(isoTime).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";

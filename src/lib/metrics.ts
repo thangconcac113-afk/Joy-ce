@@ -69,6 +69,8 @@ export interface Dashboard {
   bucket: "hour" | "day";
   viewsSeries: SeriesPoint[];
   followersSeries: SeriesPoint[];
+  /** Views gained per bucket for each account (keys are account ids). */
+  accountViewsSeries: Record<number, number[]>;
   accounts: AccountRow[];
   topVideos: VideoRow[];
 }
@@ -194,31 +196,50 @@ function seriesQuery(kind: "views" | "followers", f: Filters, start: Date, end: 
   const lookback = new Date(start.getTime() - (unit === "hour" ? DAY : 3 * DAY));
   const per =
     kind === "views"
-      ? sql`select a.platform, s.video_id as entity, date_trunc(${u}, s.taken_at) as bucket, max(s.views) as value,
+      ? sql`select a.platform, a.id as account_id, s.video_id as entity, date_trunc(${u}, s.taken_at) as bucket, max(s.views) as value,
               min(v.published_at) as published_at
             from video_snapshots s join videos v on v.id = s.video_id join accounts a on a.id = v.account_id
             where s.taken_at > ${iso(lookback)}::timestamptz and s.taken_at <= ${iso(end)}::timestamptz
               and ${scope(f, { account: "a" })}
-            group by 1, 2, 3`
-      : sql`select a.platform, s.account_id as entity, date_trunc(${u}, s.taken_at) as bucket, max(s.followers) as value,
+            group by 1, 2, 3, 4`
+      : sql`select a.platform, a.id as account_id, s.account_id as entity, date_trunc(${u}, s.taken_at) as bucket, max(s.followers) as value,
               null::timestamptz as published_at
             from account_snapshots s join accounts a on a.id = s.account_id
             where s.followers is not null and s.taken_at > ${iso(lookback)}::timestamptz
               and s.taken_at <= ${iso(end)}::timestamptz and ${scope(f, { account: "a" })}
-            group by 1, 2, 3`;
+            group by 1, 2, 3, 4`;
   return sql`
     with per as (${per}),
     d as (
-      select platform, bucket,
+      select platform, account_id, bucket,
         coalesce(value - lag(value) over (partition by entity order by bucket),
           case when published_at >= bucket - ${sql.raw(`interval '1 ${unit}'`)} then value end) as gain
       from per)
-    select platform, bucket, sum(gain) as gain from d
+    select platform, account_id, bucket, sum(gain) as gain from d
     where bucket >= date_trunc(${u}, ${iso(start)}::timestamptz) and gain is not null
-    group by 1, 2 order by 2`;
+    group by 1, 2, 3 order by 3`;
 }
 
-function fillSeries(raw: { platform: string; bucket: string | Date; gain: string | number }[], start: Date, end: Date, unit: "hour" | "day"): SeriesPoint[] {
+interface SeriesRaw {
+  platform: string;
+  account_id: number;
+  bucket: string | Date;
+  gain: string | number;
+}
+
+/** Per-account gains aligned to the same buckets as the platform series. */
+function accountSeries(raw: SeriesRaw[], points: SeriesPoint[]): Record<number, number[]> {
+  const index = new Map(points.map((p, i) => [new Date(p.t).getTime(), i]));
+  const out: Record<number, number[]> = {};
+  for (const r of raw) {
+    const i = index.get(new Date(r.bucket).getTime());
+    if (i === undefined) continue;
+    (out[r.account_id] ??= new Array(points.length).fill(0))[i] += num(r.gain);
+  }
+  return out;
+}
+
+function fillSeries(raw: SeriesRaw[], start: Date, end: Date, unit: "hour" | "day"): SeriesPoint[] {
   const step = unit === "hour" ? 3600_000 : DAY;
   const floor = (d: Date) => {
     const x = new Date(d);
@@ -264,8 +285,8 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
           where v.published_at > ${iso(prevStart)}::timestamptz and v.published_at <= ${iso(start)}::timestamptz
             and ${scope(f, { account: "a" })}`,
     ),
-    rows<{ platform: string; bucket: string; gain: string }>(db, seriesQuery("views", f, start, now, unit)),
-    rows<{ platform: string; bucket: string; gain: string }>(db, seriesQuery("followers", f, start, now, unit)),
+    rows<SeriesRaw>(db, seriesQuery("views", f, start, now, unit)),
+    rows<SeriesRaw>(db, seriesQuery("followers", f, start, now, unit)),
     rows<{ finished_at: string | Date | null; accounts_ok: number; accounts_failed: number }>(
       db,
       sql`select finished_at, accounts_ok, accounts_failed from poll_runs where finished_at is not null order by id desc limit 1`,
@@ -297,6 +318,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
   });
 
   const prevVideos = prev.map(toVideo);
+  const viewsSeries = fillSeries(viewsRaw, start, now, unit);
   return {
     generatedAt: now.toISOString(),
     filters: { range: f.range, platform: f.platform, accountId: f.accountId ?? null },
@@ -315,8 +337,9 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
       videosPublishedPrev: num(publishedPrev[0]?.n),
     },
     bucket: unit,
-    viewsSeries: fillSeries(viewsRaw, start, now, unit),
+    viewsSeries,
     followersSeries: fillSeries(follRaw, start, now, unit),
+    accountViewsSeries: accountSeries(viewsRaw, viewsSeries),
     accounts,
     topVideos: [...videos].sort((a, b) => b.viewsGained - a.viewsGained).slice(0, 25),
   };

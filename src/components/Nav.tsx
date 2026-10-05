@@ -9,7 +9,7 @@ const ICONS = {
 };
 
 export const LINKS = [
-  { href: "/", label: "Overview", icon: ICONS.overview },
+  { href: "/", label: "Dashboard", icon: ICONS.overview },
   { href: "/library", label: "Video library", icon: ICONS.library },
   { href: "/channels", label: "Channels", icon: ICONS.channels },
 ];
