@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Img } from "./Img";
 import { useLive } from "./useLive";
-import { ago, PLATFORM_LABEL } from "./format";
+import { PLATFORM_LABEL } from "./format";
+import { useI18n } from "./I18n";
 
 interface AccountsResponse {
   accounts: {
@@ -20,6 +21,7 @@ interface AccountsResponse {
 }
 
 export function Channels({ connected, connectError }: { connected?: string; connectError?: string }) {
+  const { t, ago } = useI18n();
   const { data, error, reload } = useLive<AccountsResponse>("/api/accounts", 60_000);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,7 @@ export function Channels({ connected, connectError }: { connected?: string; conn
     try {
       const res = await fetch("/api/accounts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }) });
       const body = await res.json().catch(() => ({}));
-      setMsg(res.ok ? { ok: true, text: `Added ${body.title}. Its numbers appear after the next sync.` } : { ok: false, text: body.error ?? "Could not add channel." });
+      setMsg(res.ok ? { ok: true, text: t("Added {title}. Its numbers appear after the next sync.", { title: body.title }) } : { ok: false, text: body.error ?? t("Could not add channel.") });
       if (res.ok) setInput("");
       reload();
     } finally {
@@ -41,7 +43,7 @@ export function Channels({ connected, connectError }: { connected?: string; conn
   }
 
   async function remove(id: number, title: string) {
-    if (!window.confirm(`Stop tracking ${title}? Its history will be deleted.`)) return;
+    if (!window.confirm(t("Stop tracking {title}? Its history will be deleted.", { title }))) return;
     await fetch(`/api/accounts?id=${id}`, { method: "DELETE" });
     reload();
   }
@@ -50,11 +52,11 @@ export function Channels({ connected, connectError }: { connected?: string; conn
     <>
       <div className="page-head">
         <div>
-          <h1>Channels</h1>
-          <p>Choose which Team Secret YouTube channels and TikTok accounts are tracked.</p>
+          <h1>{t("Channels")}</h1>
+          <p>{t("Choose which Team Secret YouTube channels and TikTok accounts are tracked.")}</p>
         </div>
       </div>
-      {connected && <div className="banner ok">Connected TikTok account {connected}.</div>}
+      {connected && <div className="banner ok">{t("Connected TikTok account {name}.", { name: connected })}</div>}
       {connectError && (
         <div className="banner" role="alert">
           {connectError}
@@ -69,34 +71,34 @@ export function Channels({ connected, connectError }: { connected?: string; conn
       <div className="connect">
         <section className="card" aria-label="Add YouTube channel">
           <h2 className="card-title">
-            <i className="dot dot-yt" aria-hidden /> Add a YouTube channel
+            <i className="dot dot-yt" aria-hidden /> {t("Add a YouTube channel")}
           </h2>
-          <p className="card-sub">Public channel stats via the YouTube Data API. Paste a @handle, channel ID or channel URL.</p>
-          {data && !data.config.youtube && <span className="err">YOUTUBE_API_KEY is not configured on the server.</span>}
+          <p className="card-sub">{t("Public channel stats via the YouTube Data API. Paste a @handle, channel ID or channel URL.")}</p>
+          {data && !data.config.youtube && <span className="err">{t("YOUTUBE_API_KEY is not configured on the server.")}</span>}
           <form onSubmit={add}>
             <input className="input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="@TeamSecret or youtube.com/@..." aria-label="YouTube channel" required />
             <button className="btn btn-primary" disabled={busy || !input.trim()}>
-              {busy ? "Adding…" : "Add channel"}
+              {busy ? t("Adding…") : t("Add channel")}
             </button>
           </form>
           {msg && <span className={msg.ok ? "status-ok" : "err"}>{msg.text}</span>}
         </section>
         <section className="card" aria-label="Connect TikTok account">
           <h2 className="card-title">
-            <i className="dot dot-tt" aria-hidden /> Connect a TikTok account
+            <i className="dot dot-tt" aria-hidden /> {t("Connect a TikTok account")}
           </h2>
           <p className="card-sub">
-            Whoever manages the TikTok account signs in once and approves read-only access to profile stats and videos. Access renews automatically for a year.
+            {t("Whoever manages the TikTok account signs in once and approves read-only access to profile stats and videos. Access renews automatically for a year.")}
           </p>
-          {data && !data.config.tiktok && <span className="err">TikTok app credentials are not configured on the server.</span>}
+          {data && !data.config.tiktok && <span className="err">{t("TikTok app credentials are not configured on the server.")}</span>}
           <div>
             {data?.config.tiktok ? (
               <a className="btn btn-primary" href="/api/tiktok/connect">
-                Connect with TikTok
+                {t("Connect with TikTok")}
               </a>
             ) : (
               <button className="btn btn-primary" type="button" disabled>
-                Connect with TikTok
+                {t("Connect with TikTok")}
               </button>
             )}
           </div>
@@ -105,16 +107,16 @@ export function Channels({ connected, connectError }: { connected?: string; conn
 
       <section className="card section" aria-label="Tracked channels">
         <div className="section-head">
-          <h2 className="card-title">Tracked channels</h2>
-          <span className="card-sub">{data?.accounts.length ?? 0} channels</span>
+          <h2 className="card-title">{t("Tracked channels")}</h2>
+          <span className="card-sub">{t("{n} channels", { n: data?.accounts.length ?? 0 })}</span>
         </div>
         <div className="table-wrap">
           <table className="data">
             <thead>
               <tr>
-                <th>Channel</th>
-                <th>Platform</th>
-                <th>Status</th>
+                <th>{t("Channel")}</th>
+                <th>{t("Platform")}</th>
+                <th>{t("Status")}</th>
                 <th />
               </tr>
             </thead>
@@ -122,7 +124,7 @@ export function Channels({ connected, connectError }: { connected?: string; conn
               {data?.accounts.length === 0 && (
                 <tr>
                   <td colSpan={4} className="empty">
-                    Nothing tracked yet.
+                    {t("Nothing tracked yet.")}
                   </td>
                 </tr>
               )}
@@ -149,15 +151,15 @@ export function Channels({ connected, connectError }: { connected?: string; conn
                       {a.lastError ? (
                         <span className="err">⚠ {a.lastError}</span>
                       ) : a.lastPolledAt ? (
-                        <span className="status-ok">✓ Synced {ago(a.lastPolledAt)}</span>
+                        <span className="status-ok">{t("✓ Synced {time}", { time: ago(a.lastPolledAt) })}</span>
                       ) : (
-                        <span className="muted">Waiting for first sync</span>
+                        <span className="muted">{t("Waiting for first sync")}</span>
                       )}
-                      {a.platform === "tiktok" && expiring && <div className="err">Authorisation expires soon. Reconnect this account.</div>}
+                      {a.platform === "tiktok" && expiring && <div className="err">{t("Authorisation expires soon. Reconnect this account.")}</div>}
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <button className="btn btn-danger" type="button" onClick={() => remove(a.id, a.title)}>
-                        Remove
+                        {t("Remove")}
                       </button>
                     </td>
                   </tr>

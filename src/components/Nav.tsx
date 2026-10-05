@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useI18n } from "./I18n";
 
 const ICONS = {
   overview: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
@@ -16,14 +17,15 @@ export const LINKS = [
 
 export function Nav({ className }: { className: string }) {
   const path = usePathname();
+  const { t } = useI18n();
   return (
-    <nav className={className} aria-label="Main">
+    <nav className={className} aria-label={t("Main")}>
       {LINKS.map((l) => (
         <a key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d={l.icon} />
           </svg>
-          {l.label}
+          {t(l.label)}
         </a>
       ))}
     </nav>

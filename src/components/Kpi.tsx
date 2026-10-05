@@ -1,7 +1,9 @@
 import { fmt, fmtFull, pctChange } from "./format";
 import { Sparkline } from "./Sparkline";
+import { useI18n } from "./I18n";
 
 export function Kpi({ label, value, current, previous, period, hint, note, compareLabel, trend, trendColor = "var(--muted)" }: { label: string; value: number; current: number; previous: number; period: string; hint?: string; note?: string; compareLabel?: string; trend?: number[]; trendColor?: string }) {
+  const { t } = useI18n();
   const pct = pctChange(current, previous);
   const dir = pct === null || Math.abs(pct) < 0.5 ? "flat" : pct > 0 ? "up" : "down";
   return (
@@ -16,12 +18,12 @@ export function Kpi({ label, value, current, previous, period, hint, note, compa
       {note && <div className="kpi-note">{note}</div>}
       <div className={`delta ${dir}`}>
         {pct === null ? (
-          <span>No data for the previous period</span>
+          <span>{t("No data for the previous period")}</span>
         ) : (
           <>
             <span aria-hidden>{dir === "up" ? "▲" : dir === "down" ? "▼" : "■"}</span>
             {Math.abs(pct) >= 1000 ? ">999" : Math.abs(pct).toFixed(1)}%
-            <small>{compareLabel ?? `vs previous ${period}`}</small>
+            <small>{compareLabel ?? t("vs previous {period}", { period })}</small>
           </>
         )}
       </div>

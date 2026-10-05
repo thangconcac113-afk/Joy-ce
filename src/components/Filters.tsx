@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { PlatformFilter, RangeKey } from "@/lib/metrics";
+import { useI18n } from "./I18n";
 
 export interface FilterState {
   range: RangeKey;
@@ -30,6 +31,7 @@ export function useAccountOptions() {
 
 export function Filters({ value, onChange, showRange = true }: { value: FilterState; onChange: (v: FilterState) => void; showRange?: boolean }) {
   const options = useAccountOptions();
+  const { t } = useI18n();
   const visible = options.filter((o) => value.platform === "all" || o.platform === value.platform);
   return (
     <div className="filters" role="group" aria-label="Filters">
@@ -37,7 +39,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
         <select className="select" aria-label="Date range" value={value.range} onChange={(e) => onChange({ ...value, range: e.target.value as RangeKey })}>
           {(Object.keys(RANGE_LABEL) as RangeKey[]).map((r) => (
             <option key={r} value={r}>
-              {RANGE_LABEL[r]}
+              {t(RANGE_LABEL[r])}
             </option>
           ))}
         </select>
@@ -46,7 +48,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
         {(["all", "youtube", "tiktok"] as PlatformFilter[]).map((p) => (
           <button key={p} type="button" aria-pressed={value.platform === p} onClick={() => onChange({ ...value, platform: p, account: null })}>
             {p !== "all" && <span className={`dot ${p === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />}
-            {p === "all" ? "All platforms" : p === "youtube" ? "YouTube" : "TikTok"}
+            {p === "all" ? t("All platforms") : p === "youtube" ? "YouTube" : "TikTok"}
           </button>
         ))}
       </div>
@@ -56,7 +58,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
         value={value.account ?? ""}
         onChange={(e) => onChange({ ...value, account: e.target.value ? Number(e.target.value) : null })}
       >
-        <option value="">All channels</option>
+        <option value="">{t("All channels")}</option>
         {visible.map((o) => (
           <option key={o.id} value={o.id}>
             {o.title} ({o.platform === "youtube" ? "YouTube" : "TikTok"})

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { I18nProvider } from "@/components/I18n";
+import { getLocale } from "@/lib/locale";
 
 export const metadata: Metadata = {
   title: "TS Video Tracker",
@@ -7,10 +9,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang={locale}>
+      <body>
+        <I18nProvider locale={locale}>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

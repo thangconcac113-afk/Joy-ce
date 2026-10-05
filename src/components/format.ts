@@ -19,13 +19,16 @@ export function duration(sec: number | null): string | null {
   return `${h ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`;
 }
 
-export function ago(isoTime: string | null, now = Date.now()): string {
-  if (!isoTime) return "never";
+type T = (key: string, vars?: Record<string, number>) => string;
+const plain: T = (k, v) => (v ? k.replace("{n}", String(v.n)) : k);
+
+export function ago(isoTime: string | null, now = Date.now(), t: T = plain): string {
+  if (!isoTime) return t("never");
   const s = Math.max(0, Math.round((now - new Date(isoTime).getTime()) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
+  if (s < 60) return t("just now");
+  if (s < 3600) return t("{n} min ago", { n: Math.round(s / 60) });
+  if (s < 86400) return t("{n} h ago", { n: Math.round(s / 3600) });
+  return t("{n} d ago", { n: Math.round(s / 86400) });
 }
 
 export const date = (isoTime: string | null) =>

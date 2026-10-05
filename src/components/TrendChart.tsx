@@ -3,6 +3,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { SeriesPoint } from "@/lib/metrics";
 import { fmt, fmtFull } from "./format";
+import { useI18n } from "./I18n";
 
 type Key = "youtube" | "tiktok";
 const SERIES: Record<Key, { label: string; color: string; key: string }> = {
@@ -10,11 +11,11 @@ const SERIES: Record<Key, { label: string; color: string; key: string }> = {
   tiktok: { label: "TikTok", color: "var(--series-tt)", key: "key-tt" },
 };
 
-function tickTime(t: string, bucket: "hour" | "day") {
+function tickTime(t: string, bucket: "hour" | "day", tag: string) {
   const d = new Date(t);
   return bucket === "hour"
-    ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    ? d.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString(tag, { day: "numeric", month: "short" });
 }
 
 interface TipProps {
@@ -22,16 +23,17 @@ interface TipProps {
   label?: string;
   payload?: { dataKey: Key; value: number }[];
   bucket: "hour" | "day";
+  tag: string;
 }
 
-function Tip({ active, label, payload, bucket }: TipProps) {
+function Tip({ active, label, payload, bucket, tag }: TipProps) {
   if (!active || !payload?.length || !label) return null;
   return (
     <div className="tooltip">
       <div className="tooltip-time">
         {bucket === "hour"
-          ? new Date(label).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-          : new Date(label).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+          ? new Date(label).toLocaleString(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+          : new Date(label).toLocaleDateString(tag, { weekday: "short", day: "numeric", month: "short" })}
       </div>
       {payload.map((p) => (
         <div className="tooltip-row" key={p.dataKey}>
@@ -76,6 +78,7 @@ export function TrendChart({
   headerExtra?: React.ReactNode;
   height?: number;
 }) {
+  const { t, tag } = useI18n();
   const total = (k: Key) => data.reduce((s, p) => s + p[k], 0);
   const lastIndex = data.length - 1;
   return (
@@ -102,14 +105,14 @@ export function TrendChart({
             <CartesianGrid vertical={false} stroke="var(--grid)" strokeWidth={1} />
             <XAxis
               dataKey="t"
-              tickFormatter={(t) => tickTime(t, bucket)}
+              tickFormatter={(v) => tickTime(v, bucket, tag)}
               stroke="var(--axis)"
               tick={{ fill: "var(--muted)", fontSize: 11.5 }}
               tickLine={false}
               minTickGap={28}
             />
             <YAxis tickFormatter={(v) => fmt(v)} stroke="var(--axis)" tick={{ fill: "var(--muted)", fontSize: 11.5 }} tickLine={false} axisLine={false} width={48} allowDecimals={false} />
-            <Tooltip content={<Tip bucket={bucket} />} cursor={{ stroke: "var(--axis)", strokeWidth: 1 }} />
+            <Tooltip content={<Tip bucket={bucket} tag={tag} />} cursor={{ stroke: "var(--axis)", strokeWidth: 1 }} />
             {keys.map((k) => (
               <Line
                 key={k}
@@ -130,13 +133,13 @@ export function TrendChart({
       </div>
       <details>
         <summary className="card-sub" style={{ cursor: "pointer", margin: "6px 0" }}>
-          View as table
+          {t("View as table")}
         </summary>
         <div className="table-wrap" style={{ maxHeight: 220, overflowY: "auto" }}>
           <table className="data">
             <thead>
               <tr>
-                <th>{bucket === "hour" ? "Hour" : "Day"}</th>
+                <th>{bucket === "hour" ? t("Hour") : t("Day")}</th>
                 {keys.map((k) => (
                   <th key={k} className="num">
                     {SERIES[k].label}
@@ -147,7 +150,7 @@ export function TrendChart({
             <tbody>
               {data.map((p) => (
                 <tr key={p.t}>
-                  <td>{tickTime(p.t, bucket)}</td>
+                  <td>{tickTime(p.t, bucket, tag)}</td>
                   {keys.map((k) => (
                     <td key={k} className="num">
                       {fmtFull(p[k])}

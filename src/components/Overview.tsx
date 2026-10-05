@@ -9,7 +9,8 @@ import { Kpi } from "./Kpi";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "./TrendChart";
 import { useLive } from "./useLive";
-import { ago, fmt, fmtFull, PLATFORM_LABEL, shortDate, signed } from "./format";
+import { fmt, fmtFull, PLATFORM_LABEL, signed } from "./format";
+import { useI18n } from "./I18n";
 
 const PERIOD: Record<RangeKey, string> = { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
 const RANGE_SHORT: Record<RangeKey, string> = { "24h": "24h", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
@@ -17,6 +18,7 @@ const RANGE_MS: Record<RangeKey, number> = { "24h": 86400_000, "7d": 7 * 86400_0
 const color = (p: "youtube" | "tiktok") => (p === "youtube" ? "var(--series-yt)" : "var(--series-tt)");
 
 export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; onSynced: () => void }) {
+  const { t, tag, ago } = useI18n();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [, tick] = useState(0);
@@ -31,8 +33,8 @@ export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) setMsg(body.error ?? `Sync failed (${res.status}).`);
-      else setMsg(body.accountsFailed ? `${body.accountsFailed} channel(s) failed. See Channels.` : null);
+      if (!res.ok) setMsg(body.error ?? t("Sync failed ({status}).", { status: res.status }));
+      else setMsg(body.accountsFailed ? t("{n} channel(s) failed. See Channels.", { n: body.accountsFailed }) : null);
       onSynced();
     } finally {
       setBusy(false);
@@ -40,12 +42,12 @@ export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; 
   }
   return (
     <>
-      <span className="live" title={lastSync ? new Date(lastSync).toLocaleString("en-GB") : undefined}>
+      <span className="live" title={lastSync ? new Date(lastSync).toLocaleString(tag) : undefined}>
         <i className={`live-dot ${stale ? "stale" : ""}`} aria-hidden />
-        {stale ? "Data may be stale" : "Live"} · synced {ago(lastSync)}
+        {stale ? t("Data may be stale") : t("Live")} · {t("synced {time}", { time: ago(lastSync) })}
       </span>
       <button className="btn" type="button" onClick={sync} disabled={busy}>
-        {busy ? "Syncing…" : "Sync now"}
+        {busy ? t("Syncing…") : t("Sync now")}
       </button>
       {msg && (
         <span className="err" role="status">
@@ -57,8 +59,9 @@ export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; 
 }
 
 function ChannelCard({ a, trend, selected, onSelect, period }: { a: AccountRow; trend: number[]; selected: boolean; onSelect: () => void; period: string }) {
+  const { t, ago } = useI18n();
   return (
-    <button type="button" className="ch-card card" aria-pressed={selected} onClick={onSelect} title={selected ? "Show all channels" : `Focus the dashboard on ${a.title}`}>
+    <button type="button" className="ch-card card" aria-pressed={selected} onClick={onSelect} title={selected ? t("Show all channels") : t("Focus the dashboard on {title}", { title: a.title })}>
       <div className="ch-top">
         <Img className="avatar" src={a.avatarUrl} />
         <div className="ch-name">
@@ -71,27 +74,28 @@ function ChannelCard({ a, trend, selected, onSelect, period }: { a: AccountRow; 
       </div>
       <div className="ch-stats">
         <div>
-          <span className="ch-label">Followers</span>
+          <span className="ch-label">{t("Followers")}</span>
           <span className="ch-value" title={fmtFull(a.followers)}>
             {fmt(a.followers)}
           </span>
           <span className="ch-sub">{signed(a.followersGained)}</span>
         </div>
         <div>
-          <span className="ch-label">Views · {period}</span>
+          <span className="ch-label">{t("Views · {period}", { period })}</span>
           <span className="ch-value" title={fmtFull(a.viewsGained)}>
             {fmt(a.viewsGained)}
           </span>
-          <span className="ch-sub">{a.videosPublished} new video{a.videosPublished === 1 ? "" : "s"}</span>
+          <span className="ch-sub">{t(a.videosPublished === 1 ? "{n} new video" : "{n} new videos", { n: a.videosPublished })}</span>
         </div>
       </div>
       <Sparkline values={trend} color={color(a.platform)} label={`${a.title} views trend`} height={36} />
-      <div className="ch-foot">{a.lastError ? <span className="err">⚠ Sync error</span> : <span className="muted">Synced {ago(a.lastPolledAt)}</span>}</div>
+      <div className="ch-foot">{a.lastError ? <span className="err">{t("⚠ Sync error")}</span> : <span className="muted">{t("Synced {time}", { time: ago(a.lastPolledAt) })}</span>}</div>
     </button>
   );
 }
 
 export function Overview() {
+  const { t, tag, ago, shortDate } = useI18n();
   const [f, setF] = useState<FilterState>({ range: "7d", platform: "all", account: null });
   const [metric, setMetric] = useState<"views" | "followers">("views");
   const [channelView, setChannelView] = useState<"cards" | "table">("cards");
@@ -100,7 +104,7 @@ export function Overview() {
   // Channel cards always show every channel on the platform, so one can be picked or unpicked.
   const { data: all } = useLive<Dashboard>(`/api/dashboard?${toQuery({ ...f, account: null })}`, 60_000);
 
-  const period = PERIOD[f.range];
+  const period = t(PERIOD[f.range]);
   const focused = all?.accounts.find((a) => a.id === f.account) ?? null;
   const keys = focused ? [focused.platform] : f.platform === "all" ? (["youtube", "tiktok"] as const) : ([f.platform] as const);
   // Sparklines leave out the current bucket: it is still filling up and would always dip.
@@ -113,13 +117,13 @@ export function Overview() {
     <>
       <div className="page-head">
         <div>
-          <h1>{focused ? focused.title : "Dashboard"}</h1>
-          <p>{focused ? `${PLATFORM_LABEL[focused.platform]} channel · last ${period}` : `Every Team Secret channel at a glance · last ${period}`}</p>
+          <h1>{focused ? focused.title : t("Dashboard")}</h1>
+          <p>{focused ? t("{platform} channel · last {period}", { platform: PLATFORM_LABEL[focused.platform], period }) : t("Every Team Secret channel at a glance · last {period}", { period })}</p>
         </div>
         <div className="head-actions">
           <SyncControls lastSync={data?.lastPoll?.finishedAt ?? null} onSynced={reload} />
           <a className="btn btn-primary" href={`/api/export?${query}`}>
-            Export CSV
+            {t("Export CSV")}
           </a>
         </div>
       </div>
@@ -128,7 +132,7 @@ export function Overview() {
         <div className="seg" aria-label="Date range">
           {(Object.keys(RANGE_SHORT) as RangeKey[]).map((r) => (
             <button key={r} type="button" aria-pressed={f.range === r} onClick={() => setF({ ...f, range: r })}>
-              {RANGE_SHORT[r]}
+              {t(RANGE_SHORT[r])}
             </button>
           ))}
         </div>
@@ -136,26 +140,27 @@ export function Overview() {
           {(["all", "youtube", "tiktok"] as const).map((p) => (
             <button key={p} type="button" aria-pressed={f.platform === p && !focused} onClick={() => setF({ ...f, platform: p, account: null })}>
               {p !== "all" && <span className={`dot ${p === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />}
-              {p === "all" ? "All" : PLATFORM_LABEL[p]}
+              {p === "all" ? t("All") : PLATFORM_LABEL[p]}
             </button>
           ))}
         </div>
         {focused && (
           <button type="button" className="chip" onClick={() => setF({ ...f, account: null })}>
-            Channel: {focused.title} <span aria-hidden>✕</span>
+            {t("Channel: {title}", { title: focused.title })} <span aria-hidden>✕</span>
           </button>
         )}
       </div>
 
       {error && (
         <div className="banner" role="alert">
-          <span>Couldn&apos;t refresh: {error}</span>
+          <span>{t("Couldn't refresh: {error}", { error })}</span>
         </div>
       )}
       {data && all && all.accounts.length === 0 && (
         <div className="banner info">
           <span>
-            No channels tracked yet. Add YouTube channels and connect TikTok accounts on the <a href="/channels">Channels</a> page.
+            {t("No channels tracked yet. Add YouTube channels and connect TikTok accounts on the")} <a href="/channels">{t("Channels")}</a>
+            {t(" page.")}
           </span>
         </div>
       )}
@@ -163,9 +168,9 @@ export function Overview() {
       {data?.trackingSince && new Date(data.trackingSince).getTime() > new Date(data.generatedAt).getTime() - RANGE_MS[f.range] && (
         <div className="banner info">
           <span>
-            Tracking started {new Date(data.trackingSince).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Growth
-            before that can&apos;t be measured, so this period is incomplete: videos published in it count with all their views, and the charts fill in as
-            new syncs arrive.
+            {t("Tracking started {time}. Growth before that can't be measured, so this period is incomplete: videos published in it count with all their views, and the charts fill in as new syncs arrive.", {
+              time: new Date(data.trackingSince).toLocaleString(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+            })}
           </span>
         </div>
       )}
@@ -174,25 +179,25 @@ export function Overview() {
         <div className={loading ? "refetching" : undefined}>
           <div className="kpis">
             <Kpi
-              label="Total followers"
+              label={t("Total followers")}
               value={data.kpis.followers}
-              note={`${signed(data.kpis.followersGained)} net new`}
+              note={t("{n} net new", { n: signed(data.kpis.followersGained) })}
               current={data.kpis.followersGained}
               previous={data.kpis.followersGainedPrev}
               period={period}
-              compareLabel="growth vs prev."
+              compareLabel={t("growth vs prev.")}
               trend={total(data.followersSeries)}
-              hint="YouTube subscribers + TikTok followers. YouTube rounds public subscriber counts, so its growth moves in steps."
+              hint={t("YouTube subscribers + TikTok followers. YouTube rounds public subscriber counts, so its growth moves in steps.")}
             />
-            <Kpi label="Views gained" value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel="vs prev." trend={total(data.viewsSeries)} hint="New views on tracked videos during the period." />
-            <Kpi label="Engagements" value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel="vs prev." hint="New likes + comments + shares on tracked videos." />
-            <Kpi label="Videos published" value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel="vs prev." />
+            <Kpi label={t("Views gained")} value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel={t("vs prev.")} trend={total(data.viewsSeries)} hint={t("New views on tracked videos during the period.")} />
+            <Kpi label={t("Engagements")} value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel={t("vs prev.")} hint={t("New likes + comments + shares on tracked videos.")} />
+            <Kpi label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
 
           <div className="dash-grid">
             <TrendChart
-              title={metric === "views" ? "Views gained" : "Net new followers"}
-              subtitle={`Per ${data.bucket} · latest ${data.bucket} still in progress`}
+              title={metric === "views" ? t("Views gained") : t("Net new followers")}
+              subtitle={t("Per {bucket} · latest {bucket} still in progress", { bucket: t(data.bucket) })}
               data={metric === "views" ? data.viewsSeries : data.followersSeries}
               keys={[...keys]}
               bucket={data.bucket}
@@ -200,10 +205,10 @@ export function Overview() {
               headerExtra={
                 <div className="seg" aria-label="Chart metric">
                   <button type="button" aria-pressed={metric === "views"} onClick={() => setMetric("views")}>
-                    Views
+                    {t("Views")}
                   </button>
                   <button type="button" aria-pressed={metric === "followers"} onClick={() => setMetric("followers")}>
-                    Followers
+                    {t("Followers")}
                   </button>
                 </div>
               }
@@ -211,14 +216,14 @@ export function Overview() {
             <section className="card trending" aria-label="Trending videos">
               <div className="card-head">
                 <div>
-                  <h2 className="card-title">Trending now</h2>
-                  <p className="card-sub">Most views gained · last {period}</p>
+                  <h2 className="card-title">{t("Trending now")}</h2>
+                  <p className="card-sub">{t("Most views gained · last {period}", { period })}</p>
                 </div>
                 <a className="link" href="/library">
-                  All videos →
+                  {t("All videos →")}
                 </a>
               </div>
-              {trending.length === 0 && <div className="empty">No video activity in this period yet.</div>}
+              {trending.length === 0 && <div className="empty">{t("No video activity in this period yet.")}</div>}
               <ol className="trend-list">
                 {trending.map((v, i) => (
                   <li key={v.id}>
@@ -235,7 +240,7 @@ export function Overview() {
                       </span>
                       <span className="tgain">
                         <b>{signed(v.viewsGained)}</b>
-                        <small>{fmt(v.views)} total</small>
+                        <small>{t("{n} total", { n: fmt(v.views) })}</small>
                       </span>
                     </a>
                   </li>
@@ -247,15 +252,15 @@ export function Overview() {
           <section className="section" aria-label="Channels">
             <div className="section-bar">
               <div>
-                <h2 className="card-title">Channels</h2>
-                <p className="card-sub">{focused ? "Click the highlighted card again to show all channels." : "Click a channel to focus the whole dashboard on it."}</p>
+                <h2 className="card-title">{t("Channels")}</h2>
+                <p className="card-sub">{focused ? t("Click the highlighted card again to show all channels.") : t("Click a channel to focus the whole dashboard on it.")}</p>
               </div>
               <div className="seg" aria-label="Channel view">
                 <button type="button" aria-pressed={channelView === "cards"} onClick={() => setChannelView("cards")}>
-                  Cards
+                  {t("Cards")}
                 </button>
                 <button type="button" aria-pressed={channelView === "table"} onClick={() => setChannelView("table")}>
-                  Table
+                  {t("Table")}
                 </button>
               </div>
             </div>
@@ -266,7 +271,7 @@ export function Overview() {
                     key={a.id}
                     a={a}
                     trend={(all?.accountViewsSeries[a.id] ?? []).slice(0, -1)}
-                    period={RANGE_SHORT[f.range]}
+                    period={t(RANGE_SHORT[f.range])}
                     selected={f.account === a.id}
                     onSelect={() => setF({ ...f, account: f.account === a.id ? null : a.id })}
                   />
@@ -277,13 +282,13 @@ export function Overview() {
                 <table className="data">
                   <thead>
                     <tr>
-                      <th>Channel</th>
-                      <th className="num">Followers</th>
-                      <th className="num">Net followers</th>
-                      <th className="num">Views gained</th>
-                      <th className="num">Engagements</th>
-                      <th className="num">Videos</th>
-                      <th>Last sync</th>
+                      <th>{t("Channel")}</th>
+                      <th className="num">{t("Followers")}</th>
+                      <th className="num">{t("Net followers")}</th>
+                      <th className="num">{t("Views gained")}</th>
+                      <th className="num">{t("Engagements")}</th>
+                      <th className="num">{t("Videos")}</th>
+                      <th>{t("Last sync")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -310,7 +315,7 @@ export function Overview() {
           </section>
         </div>
       )}
-      {!data && !error && <div className="empty">Loading…</div>}
+      {!data && !error && <div className="empty">{t("Loading…")}</div>}
     </>
   );
 }
