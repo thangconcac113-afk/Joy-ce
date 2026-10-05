@@ -18,7 +18,7 @@ type SpeechRecognitionLike = {
 
 const starter: Message = {
   role: "assistant",
-  text: "Hi, I’m Radar AI. Ask me what is performing, which channel is growing, or what the team should review next.",
+  text: "Hi, I’m TS Minion. Ask me what is performing, which channel is growing, or what the team should review next.",
 };
 
 export function RadarAI() {
@@ -102,12 +102,12 @@ export function RadarAI() {
   return (
     <div className="radar-ai">
       {open && (
-        <section className="radar-panel" aria-label="Radar AI assistant">
+        <section className="radar-panel" aria-label="TS Minion assistant">
           <header className="radar-head">
-            <div><span className="radar-orb small" aria-hidden><i /></span><div><b>Radar AI</b><small>Content performance analyst</small></div></div>
+            <div><span className="radar-orb small" aria-hidden><i /></span><div><b>TS Minion</b><small>Content performance analyst</small></div></div>
             <div className="radar-head-actions">
               <button type="button" onClick={() => setVoice((value) => !value)} title={voice ? "Mute voice" : "Enable voice"} aria-label={voice ? "Mute voice" : "Enable voice"}>{voice ? "🔊" : "🔇"}</button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close Radar AI">×</button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close TS Minion">×</button>
             </div>
           </header>
           <div className="radar-messages" aria-live="polite">
@@ -120,14 +120,14 @@ export function RadarAI() {
           </div>
           <form className="radar-compose" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
             <button className={listening ? "radar-mic active" : "radar-mic"} type="button" onClick={listen} aria-label={listening ? "Stop listening" : "Ask with voice"}>{listening ? "■" : "●"}</button>
-            <input value={text} onChange={(event) => setText(event.target.value)} placeholder={listening ? "Listening…" : "Ask about performance…"} maxLength={500} aria-label="Message Radar AI" />
+            <input value={text} onChange={(event) => setText(event.target.value)} placeholder={listening ? "Listening…" : "Ask about performance…"} maxLength={500} aria-label="Message TS Minion" />
             <button className="radar-send" type="submit" disabled={!text.trim() || busy} aria-label="Send message">↑</button>
           </form>
           <footer>Uses live metrics from Video Tracker</footer>
         </section>
       )}
-      <button className="radar-launch" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? "Close Radar AI" : "Open Radar AI"}>
-        <span className="radar-orb" aria-hidden><i /></span><span><b>Ask Radar AI</b><small>Voice + live insights</small></span>
+      <button className="radar-launch" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? "Close TS Minion" : "Open TS Minion"}>
+        <span className="radar-orb" aria-hidden><i /></span><span><b>Ask TS Minion</b><small>Voice + live insights</small></span>
       </button>
     </div>
   );
