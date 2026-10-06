@@ -304,3 +304,16 @@ table.data tbody tr:hover { background: var(--surface-2); }
 .lang-center { align-self: center; }
 .lang-mobile { display: none; }
 @media (max-width: 760px) { .lang-mobile { display: inline-flex; margin: 10px 16px 0; } }
+
+/* monthly report */
+.report-summary { padding: 16px 18px; margin-bottom: 14px; }
+.report-summary p { margin: 0; font-size: 15px; line-height: 1.6; }
+.report-foot { font-size: 12px; margin-top: 18px; }
+@media print {
+  :root, :root[data-theme] { --page: #fff !important; --surface: #fff !important; --surface-2: #f1f0ec !important; --ink: #0b0b0b !important; --ink-2: #333 !important; --muted: #666 !important; --border: rgba(0,0,0,.18) !important; --accent: #0b0b0b !important; --accent-ink: #fff !important; }
+  body { background: #fff !important; color: #0b0b0b !important; }
+  .sidebar, .mobile-nav, .lang-mobile, .radar-ai, .no-print, .filters { display: none !important; }
+  .shell { display: block !important; }
+  .main { padding: 0 !important; }
+  .card { box-shadow: none !important; break-inside: avoid; }
+}

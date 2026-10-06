@@ -421,3 +421,147 @@ export async function getLibrary(db: Db, query: LibraryQuery): Promise<{ total: 
   ]);
   return { total: num(total[0]?.n), items: items.map(toVideo) };
 }
+
+/* ---------- Monthly report (for management) ---------- */
+
+const VN_OFFSET = 7 * 3600_000; // months follow Vietnam time, not UTC
+
+export interface MonthRange {
+  month: string;
+  start: Date;
+  end: Date;
+  prevStart: Date;
+  /** True once the month is over, so its numbers no longer change. */
+  complete: boolean;
+}
+
+/** "2026-09" -> boundaries in Vietnam time. The end is capped at `now` for the running month. */
+export function monthRange(month: string, now = new Date()): MonthRange | null {
+  const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const start = new Date(Date.UTC(y, mo - 1, 1) - VN_OFFSET);
+  const nextStart = new Date(Date.UTC(y, mo, 1) - VN_OFFSET);
+  const prevStart = new Date(Date.UTC(y, mo - 2, 1) - VN_OFFSET);
+  const complete = now >= nextStart;
+  return { month, start, end: complete ? nextStart : now, prevStart, complete };
+}
+
+/** The month the report page opens on: this month. */
+export const currentMonth = (now = new Date()) => {
+  const vn = new Date(now.getTime() + VN_OFFSET);
+  return `${vn.getUTCFullYear()}-${String(vn.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
+export interface MonthlyReport {
+  month: string;
+  generatedAt: string;
+  complete: boolean;
+  trackingSince: string | null;
+  kpis: {
+    viewsGained: number;
+    viewsGainedPrev: number;
+    engagements: number;
+    engagementsPrev: number;
+    followers: number;
+    followersGained: number;
+    followersGainedPrev: number;
+    videosPublished: number;
+    videosPublishedPrev: number;
+  };
+  accounts: (AccountRow & { avdSec: number | null })[];
+  topVideos: VideoRow[];
+  /** Average view duration over the last 30 days, weighted by views. Owner-only data, so it can be missing. */
+  avdSec: number | null;
+}
+
+export async function getMonthlyReport(db: Db, month: string, now = new Date()): Promise<MonthlyReport | null> {
+  const r = monthRange(month, now);
+  if (!r) return null;
+  await db.execute(sql`set time zone 'UTC'`);
+  const f: Filters = { range: "30d", platform: "all", accountId: null };
+  const [cur, prev, fol, folPrev, accts, published, publishedPrev, since, an] = await Promise.all([
+    rows<RawVideo>(db, videoGainsQuery(f, r.start, r.end)),
+    rows<RawVideo>(db, videoGainsQuery(f, r.prevStart, r.start)),
+    rows<{ id: number; followers: string | null; gained: string | null }>(db, followerQuery(f, r.start, r.end)),
+    rows<{ id: number; gained: string | null }>(db, followerQuery(f, r.prevStart, r.start)),
+    rows<{ id: number; platform: "youtube" | "tiktok"; title: string; handle: string | null; avatar_url: string | null; last_polled_at: string | Date | null; last_error: string | null }>(
+      db,
+      sql`select a.id, a.platform, a.title, a.handle, a.avatar_url, a.last_polled_at, a.last_error from accounts a order by a.platform, a.title`,
+    ),
+    rows<{ account_id: number; n: string }>(db, sql`select v.account_id, count(*) as n from videos v where v.published_at >= ${iso(r.start)}::timestamptz and v.published_at < ${iso(r.end)}::timestamptz group by 1`),
+    rows<{ n: string }>(db, sql`select count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.start)}::timestamptz`),
+    rows<{ t: string | Date | null }>(db, sql`select min(taken_at) as t from account_snapshots`),
+    rows<{ account_id: number; views: number | null; avd_sec: number | null }>(db, sql`select account_id, views, avd_sec from channel_analytics where range_key = '30d'`),
+  ]);
+
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  const videos = cur.map(toVideo);
+  const folById = new Map(fol.map((x) => [x.id, x]));
+  const pubById = new Map(published.map((x) => [x.account_id, num(x.n)]));
+  const anById = new Map(an.map((x) => [x.account_id, x]));
+
+  const accounts = accts.map((a) => {
+    const own = videos.filter((v) => v.accountId === a.id);
+    const fr = folById.get(a.id);
+    return {
+      id: a.id,
+      platform: a.platform,
+      title: a.title,
+      handle: a.handle,
+      avatarUrl: a.avatar_url,
+      followers: fr?.followers == null ? null : num(fr.followers),
+      followersGained: fr?.gained == null ? null : num(fr.gained),
+      viewsGained: sum(own.map((v) => v.viewsGained)),
+      engagementsGained: sum(own.map((v) => v.engagementsGained)),
+      videosPublished: pubById.get(a.id) ?? 0,
+      lastPolledAt: toIso(a.last_polled_at),
+      lastError: a.last_error,
+      avdSec: anById.get(a.id)?.avd_sec ?? null,
+    };
+  });
+
+  const anWeight = an.filter((x) => x.avd_sec != null && x.views);
+  const anViews = sum(anWeight.map((x) => num(x.views)));
+  return {
+    month: r.month,
+    generatedAt: now.toISOString(),
+    complete: r.complete,
+    trackingSince: toIso(since[0]?.t ?? null),
+    kpis: {
+      viewsGained: sum(videos.map((v) => v.viewsGained)),
+      viewsGainedPrev: sum(prev.map(toVideo).map((v) => v.viewsGained)),
+      engagements: sum(videos.map((v) => v.engagementsGained)),
+      engagementsPrev: sum(prev.map(toVideo).map((v) => v.engagementsGained)),
+      followers: sum(accounts.map((a) => a.followers ?? 0)),
+      followersGained: sum(fol.map((x) => num(x.gained))),
+      followersGainedPrev: sum(folPrev.map((x) => num(x.gained))),
+      videosPublished: sum([...pubById.values()]),
+      videosPublishedPrev: num(publishedPrev[0]?.n),
+    },
+    accounts,
+    topVideos: [...videos].sort((a, b) => b.viewsGained - a.viewsGained).slice(0, 5),
+    avdSec: anViews ? sum(anWeight.map((x) => num(x.avd_sec) * num(x.views))) / anViews : null,
+  };
+}
+
+/** Videos published in the last 48 hours, newest first, with their pace so far. */
+export interface LatestUpload extends VideoRow {
+  hoursOld: number;
+  viewsPerHour: number;
+}
+
+export async function getLatestUploads(db: Db, f: Pick<Filters, "platform" | "accountId">, now = new Date()): Promise<LatestUpload[]> {
+  await db.execute(sql`set time zone 'UTC'`);
+  const ff: Filters = { range: "24h", platform: f.platform, accountId: f.accountId ?? null };
+  const since = new Date(now.getTime() - 2 * DAY);
+  const fresh = await rows<RawVideo>(
+    db,
+    sql`select * from (${videoGainsQuery(ff, new Date(now.getTime() - DAY), now)}) g where g.published_at >= ${iso(since)}::timestamptz order by g.published_at desc limit 12`,
+  );
+  return fresh.map(toVideo).map((v) => {
+    const hoursOld = Math.max(1, (now.getTime() - new Date(v.publishedAt ?? now).getTime()) / 3600_000);
+    return { ...v, hoursOld, viewsPerHour: v.views / hoursOld };
+  });
+}

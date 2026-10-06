@@ -5,6 +5,7 @@ import type { VideoRow } from "@/lib/metrics";
 import { Filters, toQuery, type FilterState } from "./Filters";
 import { Img } from "./Img";
 import { useLive } from "./useLive";
+import { useFilterState } from "./useFilterState";
 import { duration, fmt, signed } from "./format";
 import { useI18n } from "./I18n";
 
@@ -12,7 +13,7 @@ type Sort = "newest" | "views" | "trending";
 
 export function Library() {
   const { t, date } = useI18n();
-  const [f, setF] = useState<FilterState>({ range: "24h", platform: "all", account: null });
+  const [f, setF] = useFilterState("tsvt.library", { range: "24h", platform: "all", account: null });
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<Sort>("newest");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AccountRow, Dashboard, RangeKey } from "@/lib/metrics";
+import type { AccountRow, Dashboard, LatestUpload, RangeKey } from "@/lib/metrics";
 import type { FilterState } from "./Filters";
 import { toQuery } from "./Filters";
 import { Img } from "./Img";
@@ -9,6 +9,7 @@ import { Kpi } from "./Kpi";
 import { Sparkline } from "./Sparkline";
 import { TrendChart } from "./TrendChart";
 import { useLive } from "./useLive";
+import { useFilterState } from "./useFilterState";
 import { duration, fmt, fmtFull, PLATFORM_LABEL, signed } from "./format";
 import { useI18n } from "./I18n";
 
@@ -104,7 +105,7 @@ export function Overview() {
         : a.connected < a.total
           ? t("{n} of {m} YouTube channels connected", { n: a.connected, m: a.total })
           : t("Last {days} days", { days: a.rangeKey.slice(0, -1) });
-  const [f, setF] = useState<FilterState>({ range: "7d", platform: "all", account: null });
+  const [f, setF] = useFilterState("tsvt.overview", { range: "7d", platform: "all", account: null });
   const [metric, setMetric] = useState<"views" | "followers">("views");
   const [channelView, setChannelView] = useState<"cards" | "table">("cards");
   const query = toQuery(f);
@@ -112,6 +113,7 @@ export function Overview() {
   // Channel cards always show every channel on the platform, so one can be picked or unpicked.
   const { data: all } = useLive<Dashboard>(`/api/dashboard?${toQuery({ ...f, account: null })}`, 60_000);
 
+  const { data: latest } = useLive<{ items: LatestUpload[] }>(`/api/latest?platform=${f.platform}${f.account ? `&account=${f.account}` : ""}`, 120_000);
   const period = t(PERIOD[f.range]);
   const focused = all?.accounts.find((a) => a.id === f.account) ?? null;
   const keys = focused ? [focused.platform] : f.platform === "all" ? (["youtube", "tiktok"] as const) : ([f.platform] as const);
@@ -152,11 +154,14 @@ export function Overview() {
             </button>
           ))}
         </div>
-        {focused && (
-          <button type="button" className="chip" onClick={() => setF({ ...f, account: null })}>
-            {t("Channel: {title}", { title: focused.title })} <span aria-hidden>✕</span>
-          </button>
-        )}
+        <select className="select" aria-label={t("Channel")} value={f.account ?? ""} onChange={(e) => setF({ ...f, account: e.target.value ? Number(e.target.value) : null })}>
+          <option value="">{t("All channels")}</option>
+          {(all?.accounts ?? []).map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.title}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -223,6 +228,38 @@ export function Overview() {
             />
             <Kpi label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
+
+          <section className="card section" aria-label={t("New uploads (last 48h)")}>
+            <div className="card-head">
+              <div>
+                <h2 className="card-title">{t("New uploads (last 48h)")}</h2>
+              </div>
+              <a className="link" href="/library">
+                {t("All videos →")}
+              </a>
+            </div>
+            {latest && latest.items.length === 0 && <div className="empty">{t("No new uploads in the last 48 hours.")}</div>}
+            <ol className="trend-list">
+              {(latest?.items ?? []).slice(0, 6).map((v) => (
+                <li key={v.id}>
+                  <a href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
+                    <Img className="tthumb" src={v.thumbnailUrl} />
+                    <span className="tinfo">
+                      <span className="ttitle">{v.title}</span>
+                      <span className="tmeta">
+                        <i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />
+                        {v.accountTitle} · {t("{h}h ago", { h: Math.round(v.hoursOld) })}
+                      </span>
+                    </span>
+                    <span className="tgain">
+                      <b>{fmt(v.views)}</b>
+                      <small>{fmt(Math.round(v.viewsPerHour))}/h</small>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           <div className="dash-grid">
             <TrendChart
