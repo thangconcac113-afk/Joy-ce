@@ -168,6 +168,11 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
                           {a.analyticsConnected ? t("Reconnect Analytics") : t("Connect Analytics")}
                         </a>
                       )}
+                      {a.platform === "youtube" && data.config.analytics && !a.analyticsConnected && (
+                        <a className="btn" href="/api/youtube/connect?any=1" style={{ marginRight: 8 }} title={t("For a channel manager who signs in with a non-company Google account (e.g. Gmail)")}>
+                          {t("Connect with another Google account")}
+                        </a>
+                      )}
                       <button className="btn btn-danger" type="button" onClick={() => remove(a.id, a.title)}>
                         {t("Remove")}
                       </button>

@@ -174,6 +174,8 @@ const VI: Record<string, string> = {
   "{n} impressions": "{n} lượt hiển thị",
   "YouTube Analytics connected for {name}. AVD and CTR appear after the next sync.": "Đã kết nối YouTube Analytics cho {name}. AVD và CTR sẽ hiện sau lần đồng bộ kế tiếp.",
   "✓ YouTube Analytics connected": "✓ Đã kết nối YouTube Analytics",
+  "Connect with another Google account": "Kết nối bằng tài khoản Google khác",
+  "For a channel manager who signs in with a non-company Google account (e.g. Gmail)": "Dành cho người quản lý kênh dùng tài khoản Google ngoài công ty (ví dụ Gmail)",
   "Reconnect Analytics": "Kết nối lại Analytics",
   "Connect Analytics": "Kết nối Analytics",
   // chart

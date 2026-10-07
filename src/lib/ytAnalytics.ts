@@ -25,7 +25,7 @@ export function analyticsConfig(origin: string): AnalyticsConfig | null {
   return { clientId, clientSecret, redirectUri: `${origin}/api/youtube/callback` };
 }
 
-export function buildAuthUrl(cfg: AnalyticsConfig, state: string): string {
+export function buildAuthUrl(cfg: AnalyticsConfig, state: string, anyAccount = false): string {
   const qs = new URLSearchParams({
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
@@ -38,7 +38,7 @@ export function buildAuthUrl(cfg: AnalyticsConfig, state: string): string {
   });
   // Only offer Workspace accounts of the first allowed domain, so a personal Gmail can not be picked by mistake.
   const domain = (process.env.ALLOWED_EMAIL_DOMAINS ?? "").split(",")[0]?.trim();
-  if (domain) qs.set("hd", domain);
+  if (domain && !anyAccount) qs.set("hd", domain);   // anyAccount: a channel manager outside the company (e.g. a Gmail) connects their channel
   return `${AUTH_URL}?${qs}`;
 }
 
