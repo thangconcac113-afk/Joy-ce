@@ -154,6 +154,7 @@ const VI: Record<string, string> = {
   "Top videos of the month": "Video nổi bật của tháng",
   "Most views gained": "Nhiều lượt xem mới nhất",
   "Source: YouTube Data API and YouTube Analytics. Generated {time}.": "Nguồn: YouTube Data API và YouTube Analytics. Tạo lúc {time}.",
+  "Month in progress: {n} days counted so far": "Tháng đang diễn ra: mới tính {n} ngày",
   // new uploads
   "New uploads (last 48h)": "Video mới đăng (48 giờ qua)",
   "No new uploads in the last 48 hours.": "Chưa có video mới trong 48 giờ qua.",

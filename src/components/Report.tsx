@@ -91,7 +91,16 @@ export function Report() {
             <Kpi label={t("Views gained")} value={k.viewsGained} current={k.viewsGained} previous={k.viewsGainedPrev} period="" compareLabel={t("vs previous month")} />
             <Kpi label={t("Engagements")} value={k.engagements} current={k.engagements} previous={k.engagementsPrev} period="" compareLabel={t("vs previous month")} />
             <Kpi label={t("Net followers")} value={k.followersGained} valueText={signed(k.followersGained)} current={k.followersGained} previous={k.followersGainedPrev} period="" compareLabel={t("vs previous month")} note={t("{n} total followers", { n: fmt(k.followers) })} />
-            <Kpi label={t("Videos published")} value={k.videosPublished} current={k.videosPublished} previous={k.videosPublishedPrev} period="" compareLabel={t("vs previous month")} />
+            <Kpi
+              label={t("Videos published")}
+              value={k.videosPublished}
+              current={k.videosPublished}
+              previous={k.videosPublishedPrev}
+              period=""
+              compareLabel={t("vs previous month")}
+              noDelta={!data.complete}
+              note={data.complete ? undefined : t("Month in progress: {n} days counted so far", { n: new Date().getDate() })}
+            />
             <Kpi
               label={t("Avg view duration")}
               value={data.avdSec ?? 0}
