@@ -59,7 +59,7 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
         </div>
       </div>
       {connected && <div className="banner ok">{t("Connected TikTok account {name}.", { name: connected })}</div>}
-      {analytics && <div className="banner ok">{t("YouTube Analytics connected for {name}. AVD and CTR appear after the next sync.", { name: analytics })}</div>}
+      {analytics && <div className="banner ok">{t("YouTube Analytics connected for {name}. AVD appears after the next sync.", { name: analytics })}</div>}
       {connectError && (
         <div className="banner" role="alert">
           {connectError}

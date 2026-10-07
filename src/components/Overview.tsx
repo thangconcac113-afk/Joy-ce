@@ -220,7 +220,7 @@ export function Overview() {
               value={data.analytics.ctr ?? 0}
               valueText={data.analytics.ctr == null ? "—" : `${data.analytics.ctr.toFixed(1)}%`}
               noDelta
-              note={data.analytics.impressions == null ? analyticsNote(data.analytics, f.platform === "tiktok") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
+              note={data.analytics.impressions == null ? t("Only in YouTube Studio, not available through the YouTube API") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
               current={0}
               previous={0}
               period={period}
