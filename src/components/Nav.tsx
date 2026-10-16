@@ -27,7 +27,7 @@ export function Nav({ className }: { className: string }) {
       {LINKS.map((l, i) => (
         <div className="nav-item" key={l.href}>
         {(i === 0 || LINKS[i-1].group !== l.group) && <div className="nav-group-label">{t(l.group)}</div>}
-        <a href={l.href} aria-current={path === l.href || (l.href !== "/" && path.startsWith(`${l.href}/`)) ? "page" : undefined}>
+        <a href={l.href} title={t(l.description)} aria-label={t(l.label)} aria-current={path === l.href || (l.href !== "/" && path.startsWith(`${l.href}/`)) ? "page" : undefined}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d={l.icon} />
           </svg>
