@@ -504,3 +504,14 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   .video-table .tmeta { white-space:normal; line-height:1.5; overflow-wrap:anywhere; }
   .metric-help > div { position:fixed; left:16px; right:16px; top:auto; bottom:76px; width:auto; }
 }
+
+@media(max-width:760px) {
+  .head-actions { gap:8px; }
+  .head-actions .live { font-size:11px; }
+  .head-actions .btn { padding:8px 10px; font-size:12px; }
+  .dashboard-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; }
+  .dashboard-filters > .filter-field:first-child { grid-column:1/-1; }
+  .dashboard-filters .seg { width:100%; }
+  .dashboard-filters .seg button { flex:1; padding:6px; font-size:11px; }
+  .dashboard-filters .select { width:100%; min-width:0; font-size:12px; }
+}
