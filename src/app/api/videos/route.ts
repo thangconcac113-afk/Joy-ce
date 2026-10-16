@@ -18,6 +18,7 @@ export function GET(req: Request) {
         q: url.searchParams.get("q")?.slice(0, 100) ?? "",
         sort: s === "views" || s === "trending" ? s : "newest",
         page,
+        hashtag: url.searchParams.get("hashtag")?.slice(0,120),
         duration: ["short","medium","long"].includes(url.searchParams.get("duration") || "") ? url.searchParams.get("duration") as "short"|"medium"|"long" : undefined,
         publishedDays: [30,90,365].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : undefined,
         contentType: url.searchParams.get("type")?.slice(0,40),
