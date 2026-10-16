@@ -1,11 +1,13 @@
+import { normalizeHashtag } from "./hashtags";
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import type { PlatformFilter } from "./metrics";
 export const CONTENT_TYPES = ["Meme", "Highlights", "Mic check", "BTS", "Interview", "Announcement", "Sponsor", "Other"] as const;
-export type InsightQuery = { platform: PlatformFilter; accountId?: number | null; days: number; hours: number; contentType?: string; game?: string; campaign?: string };
+export type InsightQuery = { platform: PlatformFilter; accountId?: number | null; days: number; hours: number; contentType?: string; game?: string; campaign?: string; hashtag?: string };
 export type InsightVideo = {
   id: number; title: string; accountTitle: string; accountId: number; platform: "youtube" | "tiktok";
   publishedAt: string; thumbnailUrl: string | null; contentType: string | null; game: string | null; campaign: string | null; editor: string | null;
+  hashtags?: string[];
   durationSec: number | null; views: number; likes: number; comments: number; shares: number;
   ageViews: number | null; ageEngagements: number | null; ageSampleAt: string | null;
 };
@@ -33,13 +35,14 @@ export async function getInsights(db: Db, q: InsightQuery, now = new Date()) {
   const conditions = [sql`v.published_at >= ${start.toISOString()}::timestamptz`, sql`v.published_at <= ${now.toISOString()}::timestamptz`];
   if (q.platform !== "all") conditions.push(sql`a.platform = ${q.platform}`);
   if (q.accountId) conditions.push(sql`a.id = ${q.accountId}`);
+  if (q.hashtag) conditions.push(sql`v.hashtags @> ARRAY[${normalizeHashtag(q.hashtag)}]::text[]`);
   if (q.contentType) conditions.push(sql`v.content_type = ${q.contentType}`);
   if (q.game) conditions.push(sql`v.game ilike ${q.game.replace(/[%_\\]/g, "\\$&")}`);
   if (q.campaign) conditions.push(sql`v.campaign ilike ${q.campaign.replace(/[%_\\]/g, "\\$&")}`);
   const result = await db.execute(sql`
     select v.id, v.title, a.title as "accountTitle", a.id as "accountId", a.platform,
       v.published_at as "publishedAt", v.thumbnail_url as "thumbnailUrl", v.duration_sec as "durationSec",
-      v.content_type as "contentType", v.game, v.campaign, v.editor,
+      v.content_type as "contentType", v.game, v.campaign, v.editor, v.hashtags,
       coalesce(latest.views,0)::float8 as views, coalesce(latest.likes,0)::float8 as likes,
       coalesce(latest.comments,0)::float8 as comments, coalesce(latest.shares,0)::float8 as shares,
       milestone.views::float8 as "ageViews", milestone.eng::float8 as "ageEngagements", milestone.taken_at as "ageSampleAt"

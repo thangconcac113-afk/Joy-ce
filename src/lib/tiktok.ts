@@ -40,6 +40,7 @@ export interface TikTokVideo {
   thumbnailUrl: string | null;
   publishedAt: string | null;
   durationSec: number | null;
+  description?: string | null;
   views: number;
   likes: number | null;
   comments: number | null;
@@ -186,6 +187,7 @@ function toVideo(v: Record<string, unknown>): TikTokVideo {
       return {
         id: String(v.id),
         title: title || "Untitled TikTok",
+        description: typeof v.video_description === "string" ? v.video_description : null,
         url: httpsUrl(v.share_url),
         thumbnailUrl: httpsUrl(v.cover_image_url),
         publishedAt: created ? new Date(created * 1000).toISOString() : null,

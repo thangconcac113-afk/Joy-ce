@@ -1,4 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
+import { normalizeHashtag } from "./hashtags";
 import type { Db } from "@/db/client";
 
 export const RANGES = { "24h": 1, "7d": 7, "30d": 30, "90d": 90 } as const;
@@ -107,7 +108,7 @@ async function rows<T>(db: Db, q: SQL): Promise<T[]> {
 function videoGainsQuery(f: Filters, start: Date, end: Date): SQL {
   return sql`
     select v.id, v.account_id, a.title as account_title, a.platform, v.title, v.url, v.thumbnail_url,
-      v.published_at, v.duration_sec, v.content_type,
+      v.published_at, v.duration_sec, v.content_type, v.description, v.hashtags,
       last.views, last.likes, last.comments, last.shares, va.avd_sec, va.ctr,
       greatest(last.views - coalesce(base.views,
         case when v.published_at >= ${iso(start)}::timestamptz and exists (select 1 from account_snapshots tracked where tracked.account_id = a.id and tracked.taken_at <= v.published_at) then 0 end, first.views, last.views), 0) as views_gained,
@@ -405,6 +406,7 @@ export interface LibraryQuery {
   duration?: "short" | "medium" | "long";
   publishedDays?: number;
   contentType?: string;
+  hashtag?: string;
   page: number;
   pageSize?: number;
   now?: Date;
@@ -416,12 +418,13 @@ export async function getLibrary(db: Db, query: LibraryQuery): Promise<{ total: 
   const f: Filters = { range: "24h", platform: query.platform, accountId: query.accountId };
   const pageSize = Math.min(query.pageSize ?? 24, 60);
   const offset = Math.max(0, (query.page - 1) * pageSize);
-  const search = query.q?.trim() ? sql`and g.title ilike ${"%" + query.q.trim().replace(/[%_\\]/g, "\\$&") + "%"}` : sql``;
+  const search = query.q?.trim() ? sql`and concat(g.title, ' ', g.description) ilike ${"%" + query.q.trim().replace(/[%_\\]/g, "\\$&") + "%"}` : sql``;
   const extra: SQL[] = [];
   if (query.duration === "short") extra.push(sql`g.duration_sec <= 60`);
   if (query.duration === "medium") extra.push(sql`g.duration_sec > 60 and g.duration_sec <= 180`);
   if (query.duration === "long") extra.push(sql`g.duration_sec > 180`);
   if (query.publishedDays) extra.push(sql`g.published_at >= ${iso(new Date(now.getTime() - query.publishedDays * DAY))}::timestamptz`);
+  if (query.hashtag) extra.push(sql`g.hashtags @> ARRAY[${normalizeHashtag(query.hashtag)}]::text[]`);
   if (query.contentType) extra.push(sql`g.content_type = ${query.contentType}`);
   const where = extra.length ? sql`and ${sql.join(extra, sql` and `)}` : sql``;
   const order =

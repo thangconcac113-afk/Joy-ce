@@ -22,6 +22,7 @@ export interface YtVideo {
   publishedAt: string | null;
   thumbnailUrl: string | null;
   durationSec: number | null;
+  description?: string | null;
   views: number;
   likes: number | null;
   comments: number | null;
@@ -152,7 +153,7 @@ export async function fetchVideoIds(ids: string[], apiKey: string, fetchFn: Fetc
   const res = await call<{
     items?: {
       id: string;
-      snippet?: { title?: string; publishedAt?: string; thumbnails?: Record<string, { url?: string } | undefined> };
+      snippet?: { title?: string; description?: string; publishedAt?: string; thumbnails?: Record<string, { url?: string } | undefined> };
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
       contentDetails?: { duration?: string };
     }[];
@@ -160,6 +161,7 @@ export async function fetchVideoIds(ids: string[], apiKey: string, fetchFn: Fetc
   out.push(...(res.items ?? []).map((v) => ({
     id: v.id,
     title: v.snippet?.title ?? v.id,
+    description: v.snippet?.description ?? null,
     publishedAt: v.snippet?.publishedAt ?? null,
     thumbnailUrl: videoThumbnail(v.id, v.snippet?.thumbnails),
     durationSec: parseDuration(v.contentDetails?.duration),

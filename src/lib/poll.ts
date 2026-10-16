@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { accounts, accountSnapshots, channelAnalytics, oauthStates, pollRuns, videoAnalytics, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
+import { extractHashtags } from "./hashtags";
 import { decrypt, encrypt } from "./crypto";
 import { fetchVideos, queryVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
 import { analyticsConfig, fetchChannelStats, fetchMonthStats, fetchVideoStats, myChannelId, refreshAccessToken } from "./ytAnalytics";
@@ -29,6 +30,7 @@ export interface PollResult {
 interface VideoInput {
   id: string;
   title: string;
+  description?: string | null;
   url: string | null;
   thumbnailUrl: string | null;
   publishedAt: string | null;
@@ -53,6 +55,8 @@ async function recordVideos(db: Db, account: Account, list: VideoInput[], now: D
         thumbnailUrl: v.thumbnailUrl,
         publishedAt: v.publishedAt ? new Date(v.publishedAt) : null,
         durationSec: v.durationSec,
+        description: v.description ?? null,
+        hashtags: extractHashtags(v.title, v.description),
       })),
     )
     .onConflictDoUpdate({
@@ -62,6 +66,8 @@ async function recordVideos(db: Db, account: Account, list: VideoInput[], now: D
         url: sqlExcluded("url"),
         thumbnailUrl: sqlExcluded("thumbnail_url"),
         durationSec: sqlExcluded("duration_sec"),
+        description: sqlExcluded("description"),
+        hashtags: sqlExcluded("hashtags"),
       },
     })
     .returning({ id: videos.id, externalId: videos.externalId });
