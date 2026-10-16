@@ -29,6 +29,13 @@
       "when": 1792123771695,
       "tag": "0003_monthly_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792125804489,
+      "tag": "0004_campaign_hashtags",
+      "breakpoints": true
     }
   ]
 }
