@@ -2,24 +2,39 @@
 
 import { useState, useEffect } from "react";
 import type { MonthlyReport } from "@/lib/metrics";
+import { currentMonth } from "@/lib/metrics";
 import { Img } from "./Img";
 import { Kpi } from "./Kpi";
 import { useLive } from "./useLive";
 import { useI18n } from "./I18n";
 import { duration, fmt, fmtFull, PLATFORM_LABEL, pctChange, signed } from "./format";
 
-/** The last 6 months, newest first, as "YYYY-MM". */
+/** Every tracked month since January 2026, newest first, in Vietnam time. */
 function recentMonths(now = new Date()) {
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const latest = currentMonth(now);
+  const count = (Number(latest.slice(0, 4)) - 2026) * 12 + Number(latest.slice(5, 7));
+  return Array.from({ length: Math.max(0, count) }, (_, i) => new Date(Date.UTC(2026, i, 1)).toISOString().slice(0, 7)).reverse();
 }
 
 export function Report() {
   const { t, tag, date } = useI18n();
   const months = recentMonths();
   const [month, setMonth] = useState(months[0]);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  async function downloadPdf() {
+    setPdfBusy(true); setPdfError("");
+    try {
+      const response = await fetch(`/api/report/pdf?month=${month}`);
+      if (!response.ok) throw new Error("Could not generate the PDF. Please try again.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url; link.download = `ts-video-tracker-${month}.pdf`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) { setPdfError(error instanceof Error ? error.message : "PDF export failed."); }
+    finally { setPdfBusy(false); }
+  }
   useEffect(() => { const m = new URLSearchParams(window.location.search).get("month"); if (m && months.includes(m)) setMonth(m); }, []);
   const { data, error } = useLive<MonthlyReport>(`/api/report?month=${month}`, 120_000);
   const label = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(tag, { month: "long", year: "numeric" });
@@ -65,12 +80,16 @@ export function Report() {
           <a className="btn" href={`/api/report/export?month=${month}`}>
             {t("Export CSV")}
           </a>
-          <button className="btn btn-primary" type="button" onClick={() => window.print()}>
+          <button className="btn btn-primary" type="button" disabled={!data || pdfBusy} onClick={downloadPdf}>
+            {pdfBusy ? "Generating PDF..." : "Download monthly PDF"}
+          </button>
+          <button className="btn" type="button" onClick={() => window.print()}>
             {t("Print / Save PDF")}
           </button>
         </div>
       </div>
 
+      {pdfError && <div className="banner" role="alert">{pdfError}</div>}
       {error && (
         <div className="banner" role="alert">
           {t("Couldn't load videos: {error}", { error })}
