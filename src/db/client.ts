@@ -2,20 +2,14 @@ import path from "node:path";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 
-// Both drivers produce a PgDatabase; the rest of the app only depends on that.
+// Both drivers expose the same database interface.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Db = PgDatabase<any, typeof schema>;
-
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
-
 let cached: Promise<Db> | undefined;
 
-/**
- * Production uses Postgres via DATABASE_URL. Without it (local demo), an
- * embedded PGlite database is stored under .data/ so the app runs with no setup.
- */
 export function getDb(): Promise<Db> {
-  cached ??= open();
+  cached ??= open().catch((error) => { cached = undefined; throw error; });
   return cached;
 }
 
@@ -25,9 +19,23 @@ async function open(): Promise<Db> {
     const { Pool } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
-    const db = drizzle(new Pool({ connectionString: url, max: 5 }), { schema });
-    await migrate(db, { migrationsFolder: MIGRATIONS });
-    return db as unknown as Db;
+    const pool = new Pool({ connectionString: url, max: 5 });
+    const client = await pool.connect();
+    try {
+      // Serverless instances must not apply the same pending migration concurrently.
+      await client.query("SELECT pg_advisory_lock(817264901)");
+      try {
+        await migrate(drizzle(client, { schema }), { migrationsFolder: MIGRATIONS });
+      } finally {
+        await client.query("SELECT pg_advisory_unlock(817264901)");
+      }
+    } catch (error) {
+      client.release();
+      await pool.end();
+      throw error;
+    }
+    client.release();
+    return drizzle(pool, { schema }) as unknown as Db;
   }
   if (process.env.NODE_ENV === "production" && !process.env.ALLOW_EMBEDDED_DB) {
     throw new Error("DATABASE_URL is required in production.");
