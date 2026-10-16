@@ -234,7 +234,7 @@ export function Overview() {
             <Kpi noDelta={!data.comparisonReady} label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
 
-          <section className="card section" aria-label={t("New uploads (last 48h)")}>
+          <section className="card trending section" aria-label={t("New uploads (last 48h)")}>
             <div className="card-head">
               <div>
                 <h2 className="card-title">{t("New uploads (last 48h)")}</h2>
