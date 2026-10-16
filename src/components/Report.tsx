@@ -69,14 +69,14 @@ export function Report() {
           <h1>{t("Monthly report")}</h1>
           <p>{data ? `${label(month)} · ${data.complete ? t("final numbers") : t("month in progress, updates automatically")}` : "…"}</p>
         </div>
-        <div className="head-actions no-print">
-          <select className="select" aria-label={t("Month")} value={month} onChange={(e) => setMonth(e.target.value)}>
+        <div className="head-actions report-actions no-print">
+          <label className="filter-field"><span className="control-label">{t("Reporting month")}</span><select className="select" aria-label={t("Month")} value={month} onChange={(e) => setMonth(e.target.value)}>
             {months.map((m) => (
               <option key={m} value={m}>
                 {label(m)}
               </option>
             ))}
-          </select>
+          </select></label>
           <a className="btn" href={`/api/report/export?month=${month}`}>
             {t("Export CSV")}
           </a>
@@ -89,6 +89,7 @@ export function Report() {
         </div>
       </div>
 
+      <p className="export-guide no-print"><b>Export guide</b><span>PDF includes every channel, growth charts and video thumbnails. CSV is for spreadsheets. Print saves the current view.</span></p>
       {pdfError && <div className="banner" role="alert">{pdfError}</div>}
       {error && (
         <div className="banner" role="alert">
