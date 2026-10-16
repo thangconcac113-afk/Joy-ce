@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { normalizeHashtag } from "./hashtags";
+import { getMonthlyGrowth, type MonthlyGrowthPoint } from "./monthlyGrowth";
 import type { Db } from "@/db/client";
 
 export const RANGES = { "24h": 1, "7d": 7, "30d": 30, "90d": 90 } as const;
@@ -493,16 +494,17 @@ export interface MonthlyReport {
   };
   accounts: (AccountRow & { avdSec: number | null; viewsGainedPrev: number; engagementsGainedPrev: number; followersGainedPrev: number | null; videosPublishedPrev: number; topVideos: VideoRow[] })[];
   topVideos: VideoRow[];
+  dailyGrowth: MonthlyGrowthPoint[];
   /** Average view duration over the last 30 days, weighted by views. Owner-only data, so it can be missing. */
   avdSec: number | null;
 }
 
-export async function getMonthlyReport(db: Db, month: string, now = new Date()): Promise<MonthlyReport | null> {
+export async function getMonthlyReport(db: Db, month: string, now = new Date(), options: { growth?: boolean } = {}): Promise<MonthlyReport | null> {
   const r = monthRange(month, now);
   if (!r) return null;
   await db.execute(sql`set time zone 'UTC'`);
   const f: Filters = { range: "30d", platform: "all", accountId: null };
-  const [cur, prev, fol, folPrev, accts, published, publishedPrev, since, an] = await Promise.all([
+  const [cur, prev, fol, folPrev, accts, published, publishedPrev, since, an, dailyGrowth] = await Promise.all([
     rows<RawVideo>(db, videoGainsQuery(f, r.start, r.end)),
     rows<RawVideo>(db, videoGainsQuery(f, r.prevStart, r.prevEnd)),
     rows<{ id: number; followers: string | null; gained: string | null }>(db, followerQuery(f, r.start, r.end)),
@@ -515,6 +517,7 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
     rows<{ account_id: number; n: string }>(db, sql`select v.account_id, count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.prevEnd)}::timestamptz group by 1`),
     rows<{ t: string | Date | null }>(db, sql`select case when count(t) = count(*) then max(t) end as t from (select a.id, min(s.taken_at) as t from accounts a left join account_snapshots s on s.account_id = a.id group by a.id) coverage`),
     rows<{ account_id: number; views: number | null; avd_sec: number | null }>(db, sql`select account_id, views, avd_sec from channel_analytics where range_key = ${"month:" + month}`),
+    options.growth ? getMonthlyGrowth(db, r.start, r.end) : Promise.resolve([]),
   ]);
 
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
@@ -552,6 +555,7 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
   const anViews = sum(anWeight.map((x) => num(x.views)));
   return {
     month: r.month,
+    dailyGrowth,
     generatedAt: now.toISOString(),
     complete: r.complete,
     comparisonReady: !!since[0]?.t && new Date(since[0].t) <= r.prevStart && fol.every((x) => x.followers != null),
