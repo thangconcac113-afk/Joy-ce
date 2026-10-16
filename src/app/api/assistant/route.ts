@@ -71,10 +71,10 @@ export async function POST(req: Request) {
     }
 
     const sources: {title: string; href: string}[] = topVideo ? [{title: topVideo.title, href: `/library/${topVideo.id}`}] : [];
-    if (/content|format|meme|mic check|highlight|bts|campaign|editor|nội dung|loại|why|tại sao|so sánh|compare/.test(q)) {
+    if (body.hashtag || /content|format|meme|mic check|highlight|bts|campaign|editor|nội dung|loại|why|tại sao|so sánh|compare/.test(q)) {
       const hours = /24/.test(q) ? 24 : /72/.test(q) ? 72 : 168;
       const days = range === "90d" ? 90 : range === "7d" ? 7 : range === "24h" ? 1 : 30;
-      const insights = await getInsights(db, { platform: filters.platform, accountId: filters.accountId, hours, days });
+      const insights = await getInsights(db, { platform: filters.platform, accountId: filters.accountId, hours, days, hashtag: typeof body.hashtag === "string" ? body.hashtag.slice(0,120) : undefined });
       const mentioned = CONTENT_TYPES.filter((type) => q.includes(type.toLowerCase()));
       const groups = groupInsights(insights.items).filter((g) => g.samples >= 5 && g.label !== "Untagged" && (!mentioned.length || mentioned.includes(g.label as typeof CONTENT_TYPES[number])));
       const leader = groups[0];
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       }
       sources.splice(0, sources.length, { title: "Content insights and sample sizes", href: `/insights?platform=${filters.platform}&range=${range}${filters.accountId ? `&account=${filters.accountId}` : ""}` });
     }
-    const scopeName = filters.accountId ? data.accounts[0]?.title ?? "Selected channel" : filters.platform === "all" ? "All channels" : filters.platform;
+    const scopeName = (filters.accountId ? data.accounts[0]?.title ?? "Selected channel" : filters.platform === "all" ? "All channels" : filters.platform) + (typeof body.hashtag === "string" ? ` (${body.hashtag.slice(0,100)})` : "");
     if (!data.comparisonReady) answer += vi ? " Lịch sử theo dõi chưa đủ cho cả hai kỳ, nên chưa thể kết luận tăng giảm theo phần trăm." : " Tracking history does not yet cover both periods, so percentage growth comparisons are unavailable.";
     answer += vi ? ` Phạm vi: ${scopeName}, ${rn}.` : ` Scope: ${scopeName}, ${rn}.`;
     return NextResponse.json({
