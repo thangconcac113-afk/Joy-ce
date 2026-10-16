@@ -40,6 +40,7 @@ export interface TikTokVideo {
   thumbnailUrl: string | null;
   publishedAt: string | null;
   durationSec: number | null;
+  description?: string | null;
   views: number;
   likes: number | null;
   comments: number | null;
@@ -156,11 +157,12 @@ export async function fetchUser(accessToken: string, fetchFn: FetchFn = fetch): 
 }
 
 /** Newest videos first; pages of 20 (the API maximum). */
-export async function fetchVideos(accessToken: string, limit = 40, fetchFn: FetchFn = fetch): Promise<TikTokVideo[]> {
+export async function fetchVideos(accessToken: string, limit = 40, fetchFn: FetchFn = fetch, since?: string): Promise<TikTokVideo[]> {
   const fields =
     "id,title,video_description,create_time,cover_image_url,share_url,duration,view_count,like_count,comment_count,share_count";
   const out: TikTokVideo[] = [];
   let cursor: number | undefined;
+  const seen = new Set<number>();
   while (out.length < limit) {
     const data = await api<{ videos?: Record<string, unknown>[]; cursor?: number; has_more?: boolean }>(
       await fetchFn(`${API}/video/list/?fields=${fields}`, {
@@ -169,12 +171,23 @@ export async function fetchVideos(accessToken: string, limit = 40, fetchFn: Fetc
         body: JSON.stringify(cursor === undefined ? { max_count: 20 } : { max_count: 20, cursor }),
       }),
     );
-    for (const v of data.videos ?? []) {
+    const batch = (data.videos ?? []).map(toVideo);
+    out.push(...batch.filter((v) => !since || !v.publishedAt || v.publishedAt >= since));
+    if (since && batch.some((v) => v.publishedAt && v.publishedAt < since)) break;
+    if (!data.has_more || data.cursor === undefined || seen.has(data.cursor)) break;
+    cursor = data.cursor;
+    seen.add(cursor);
+  }
+  return out.slice(0, limit);
+}
+
+function toVideo(v: Record<string, unknown>): TikTokVideo {
       const created = n(v.create_time);
       const title = String(v.title || v.video_description || "").trim();
-      out.push({
+      return {
         id: String(v.id),
         title: title || "Untitled TikTok",
+        description: typeof v.video_description === "string" ? v.video_description : null,
         url: httpsUrl(v.share_url),
         thumbnailUrl: httpsUrl(v.cover_image_url),
         publishedAt: created ? new Date(created * 1000).toISOString() : null,
@@ -183,10 +196,19 @@ export async function fetchVideos(accessToken: string, limit = 40, fetchFn: Fetc
         likes: n(v.like_count),
         comments: n(v.comment_count),
         shares: n(v.share_count),
-      });
-    }
-    if (!data.has_more || data.cursor === undefined) break;
-    cursor = data.cursor;
+      };
+}
+
+/** Display API supports refreshing up to 20 owned videos per request. */
+export async function queryVideos(accessToken: string, ids: string[], fetchFn: FetchFn = fetch): Promise<TikTokVideo[]> {
+  const fields = "id,title,video_description,create_time,cover_image_url,share_url,duration,view_count,like_count,comment_count,share_count";
+  const out: TikTokVideo[] = [];
+  for (let offset = 0; offset < ids.length; offset += 20) {
+    const data = await api<{ videos?: Record<string, unknown>[] }>(await fetchFn(`${API}/video/query/?fields=${fields}`, {
+      method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ filters: { video_ids: ids.slice(offset, offset + 20) } }),
+    }));
+    out.push(...(data.videos ?? []).map(toVideo));
   }
-  return out.slice(0, limit);
+  return out;
 }

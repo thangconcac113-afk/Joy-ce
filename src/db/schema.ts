@@ -35,6 +35,7 @@ export const accounts = pgTable(
     analyticsError: text("analytics_error"),
     lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
     lastError: text("last_error"),
+    catalogSyncedAt: timestamp("catalog_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("accounts_platform_external_uq").on(t.platform, t.externalId)],
@@ -71,6 +72,13 @@ export const videos = pgTable(
     thumbnailUrl: text("thumbnail_url"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     durationSec: integer("duration_sec"),
+    description: text("description"),
+    hashtags: text("hashtags").array().notNull().default([]),
+    contentType: text("content_type"),
+    game: text("game"),
+    campaign: text("campaign"),
+    editor: text("editor"),
+    notes: text("notes"),
   },
   (t) => [
     uniqueIndex("videos_platform_external_uq").on(t.platform, t.externalId),
@@ -147,3 +155,11 @@ export const oauthStates = pgTable("oauth_states", {
 
 export type Account = typeof accounts.$inferSelect;
 export type Platform = (typeof platformEnum.enumValues)[number];
+
+/** Workspace targets shared with everyone viewing the monthly brief. */
+export const monthlyGoals = pgTable("monthly_goals", {
+  month: text("month").primaryKey(),
+  views: bigint("views", { mode: "number" }).notNull().default(0),
+  followers: bigint("followers", { mode: "number" }).notNull().default(0),
+  publications: integer("publications").notNull().default(0),
+});

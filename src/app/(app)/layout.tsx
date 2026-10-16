@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { authDisabled, currentUser, signOut } from "@/auth";
+import { authDisabled, currentUser, signOut, canManageEmail } from "@/auth";
+import { AccessProvider } from "@/components/Access";
 import { Nav } from "@/components/Nav";
 import { LangSwitch } from "@/components/I18n";
 import { translate } from "@/lib/i18n";
@@ -13,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/signin");
   const locale = await getLocale();
   return (
-    <div className="shell">
+    <AccessProvider value={canManageEmail(user.email)}><div className="shell">
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark" aria-hidden>
@@ -43,6 +44,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <main className="main">{children}</main>
       </div>
       <RadarAI />
-    </div>
+    </div></AccessProvider>
   );
 }

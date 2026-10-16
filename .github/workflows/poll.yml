@@ -22,7 +22,8 @@ jobs:
         run: |
           if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "APP_URL / CRON_SECRET secrets are not set; skipping."
-            exit 0
+            exit 1
           fi
-          curl --fail-with-body --silent --show-error --max-time 300 \
-            -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/poll"
+          response=$(curl --fail-with-body --silent --show-error --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/poll")
+          echo "$response" | jq -e '(.accountsFailed // 0) == 0 and ((.errors // []) | length) == 0' > /dev/null

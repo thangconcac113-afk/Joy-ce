@@ -1,0 +1,25 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useLive } from "./useLive";
+import { useCanManage } from "./Access";
+import { CONTENT_TYPES } from "@/lib/insights";
+import { TrendChart } from "./TrendChart";
+import { Img } from "./Img";
+import { fmtFull, duration } from "./format";
+type Video = { id:number; title:string; description:string|null; hashtags:string[]; platform:"youtube"|"tiktok"; url:string|null; thumbnail_url:string|null; account_title:string; published_at:string|null; duration_sec:number|null; content_type:string|null; game:string|null; campaign:string|null; editor:string|null; notes:string|null; avd_sec:number|null; avg_view_pct:number|null; analytics_at:string|null };
+type Point = { t:string; views:number; likes:number|null; comments:number|null; shares:number|null };
+export function VideoDetail({id}:{id:string}) {
+ const {data,error,reload} = useLive<{video:Video;history:Point[]}>(`/api/videos/${id}`,120000);
+ const canManage=useCanManage(); const [form,setForm]=useState({contentType:"",game:"",campaign:"",editor:"",notes:""}); const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
+ useEffect(()=>{if(data){const v=data.video;setForm({contentType:v.content_type||"",game:v.game||"",campaign:v.campaign||"",editor:v.editor||"",notes:v.notes||""});}},[data?.video.id]);
+ async function save(e:React.FormEvent){e.preventDefault();setBusy(true);setMessage("");try{const r=await fetch(`/api/videos/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify(Object.fromEntries(Object.entries(form).map(([k,v])=>[k,v.trim()||null])))});const body=await r.json();setMessage(r.ok?"Saved. Tags are now available in Content insights.":body.error);if(r.ok)reload();}catch{setMessage("Could not save. Please try again.");}finally{setBusy(false);}}
+ const v=data?.video;const last=data?.history.at(-1);const first=data?.history[0];
+ return <><a className="link" href="/library">Back to video library</a>{error&&<div className="banner" role="alert">{error}</div>}{v&&<>
+ <div className="page-head"><div><h1 className="video-heading">{v.title}</h1><p>{v.account_title} · {v.platform ==="youtube"?"YouTube":"TikTok"} · {v.published_at?new Date(v.published_at).toLocaleDateString("en-GB"):"Unknown date"} · {duration(v.duration_sec)}</p></div>{v.url&&<a className="btn" href={v.url} target="_blank" rel="noreferrer noopener">Watch original</a>}</div>
+ <div className="hashtag-list">{v.hashtags?.map(tag=><a className="btn" key={tag} href={`/library?hashtag=${encodeURIComponent(tag)}`}>#{tag}</a>)}</div>
+ <div className="detail-grid"><div><Img className="video-cover" src={v.thumbnail_url}/><div className="kpis section"><div className="card kpi"><div className="kpi-label">Lifetime views</div><b className="kpi-value">{fmtFull(last?.views)}</b></div><div className="card kpi"><div className="kpi-label">Measured growth since first observation</div><b className="kpi-value">{first&&last?fmtFull(Math.max(0,last.views-first.views)):"Unavailable"}</b></div></div></div>
+ <form className="card metadata-form" onSubmit={save}><h2 className="card-title">Content context</h2><p className="muted">Tags stay attached when metrics sync.</p><label>Content type<select className="select" disabled={!canManage} value={form.contentType} onChange={e=>setForm({...form,contentType:e.target.value})}><option value="">Untagged</option>{CONTENT_TYPES.map(t=><option key={t}>{t}</option>)}</select></label>{(["game","campaign","editor"] as const).map(k=><label key={k}>{k[0].toUpperCase()+k.slice(1)}<input className="input" maxLength={80} readOnly={!canManage} value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})}/></label>)}<label>Creative notes<textarea className="input" rows={4} maxLength={3000} readOnly={!canManage} value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/></label>{canManage&&<button className="btn btn-primary" disabled={busy}>{busy?"Saving...":"Save context"}</button>}<p role="status">{message}</p></form></div>
+ <TrendChart title="Video view history" subtitle="Observed lifetime counters. History starts when tracking began, not at publication." data={data.history.map(p=>({t:p.t,youtube:v.platform==="youtube"?p.views:0,tiktok:v.platform==="tiktok"?p.views:0}))} keys={[v.platform]} bucket="hour" height={280}/>
+ <div className="card section detail-metrics"><span>Likes <b>{fmtFull(last?.likes)}</b></span><span>Comments <b>{fmtFull(last?.comments)}</b></span><span>Shares <b>{v.platform==="youtube"?"Unavailable":fmtFull(last?.shares)}</b></span>{v.platform==="youtube"&&<><span>Avg watch duration <b>{v.avd_sec==null?"Unavailable":duration(Math.round(v.avd_sec))}</b></span><span>Average viewed <b>{v.avg_view_pct==null?"Unavailable":`${v.avg_view_pct.toFixed(1)}%`}</b></span></>}</div>{v.platform==="youtube"&&<p className="muted">Watch metrics use YouTube Analytics, last 28 days. Updated {v.analytics_at?new Date(v.analytics_at).toLocaleString("en-GB"):"not yet"}.</p>}
+ </>}{!v&&!error&&<div className="empty">Loading video...</div>}</>;
+}

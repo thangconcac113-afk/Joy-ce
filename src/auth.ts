@@ -45,3 +45,8 @@ export async function currentUser(): Promise<CurrentUser | null> {
   if (!email || !isAllowedEmail(email)) return null;
   return { email, name: session.user?.name ?? null, image: session.user?.image ?? null };
 }
+
+/** Named allow-list entries manage channels; domain-wide access is read-only. */
+export function canManageEmail(email: string): boolean {
+  return list(process.env.ADMIN_EMAILS ?? process.env.ALLOWED_EMAILS).includes(email.toLowerCase()) || (authDisabled && email === "preview@local");
+}

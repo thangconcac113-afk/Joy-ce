@@ -125,3 +125,14 @@ export async function fetchVideoStats(accessToken: string, channelId: string, da
   const impById = new Map(imp.map((r) => [String(r.video), r]));
   return new Map(core.map((r) => [String(r.video), toStats(r, impById.get(String(r.video)))]));
 }
+
+/** Calendar month, kept separate from rolling windows in the reporting cache. */
+export async function fetchMonthStats(accessToken: string, channelId: string, month: string, now = new Date(), fetchFn: FetchFn = fetch): Promise<Stats> {
+  const [year, m] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, m, 0)).toISOString().slice(0, 10);
+  const endDate = lastDay < day(now) ? lastDay : day(now);
+  const range = { startDate: `${month}-01`, endDate };
+  const core = await report(accessToken, channelId, { ...range, metrics: CORE }, fetchFn);
+  const imp = await optional(() => report(accessToken, channelId, { ...range, metrics: IMPRESSIONS }, fetchFn));
+  return toStats(core[0], imp[0]);
+}

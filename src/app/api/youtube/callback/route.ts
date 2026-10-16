@@ -1,7 +1,7 @@
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { currentUser } from "@/auth";
+import { currentUser, canManageEmail } from "@/auth";
 import { getDb } from "@/db/client";
 import { accounts, oauthStates } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
@@ -19,6 +19,7 @@ function back(req: Request, params: Record<string, string>) {
 
 export async function GET(req: Request) {
   if (!(await currentUser())) return NextResponse.redirect(new URL("/signin", req.url));
+  if (!canManageEmail((await currentUser())!.email)) return new Response("Read-only access.", { status: 403 });
   const url = new URL(req.url);
   const state = url.searchParams.get("state") ?? "";
   const code = url.searchParams.get("code");

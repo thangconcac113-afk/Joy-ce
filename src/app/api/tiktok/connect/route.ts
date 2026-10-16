@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { oauthStates } from "@/db/schema";
-import { jsonError, withUser } from "@/lib/api";
+import { jsonError, withUser, withManager } from "@/lib/api";
 import { buildAuthUrl, tiktokConfig } from "@/lib/tiktok";
 
 export const dynamic = "force-dynamic";
 
 export function GET() {
-  return withUser(async () => {
+  return withManager(async () => {
     const cfg = tiktokConfig();
     if (!cfg) return jsonError("TikTok app credentials are not configured on the server.", 503);
     const state = randomBytes(24).toString("hex");

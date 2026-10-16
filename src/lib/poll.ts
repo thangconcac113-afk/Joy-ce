@@ -1,10 +1,13 @@
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { accounts, accountSnapshots, channelAnalytics, oauthStates, pollRuns, videoAnalytics, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
+import { extractHashtags } from "./hashtags";
 import { decrypt, encrypt } from "./crypto";
-import { fetchVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
-import { analyticsConfig, fetchChannelStats, fetchVideoStats, myChannelId, refreshAccessToken } from "./ytAnalytics";
-import { fetchChannels, fetchRecentVideos, parseChannelInput, resolveChannel, type FetchFn } from "./youtube";
+import { fetchVideos, queryVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
+import { analyticsConfig, fetchChannelStats, fetchMonthStats, fetchVideoStats, myChannelId, refreshAccessToken } from "./ytAnalytics";
+import { fetchChannels, fetchRecentVideos, fetchVideoIds, parseChannelInput, resolveChannel, type FetchFn } from "./youtube";
+
+const TRACK_FROM = "2026-01-01T00:00:00.000Z";
 
 export interface PollOptions {
   now?: Date;
@@ -27,6 +30,7 @@ export interface PollResult {
 interface VideoInput {
   id: string;
   title: string;
+  description?: string | null;
   url: string | null;
   thumbnailUrl: string | null;
   publishedAt: string | null;
@@ -51,6 +55,8 @@ async function recordVideos(db: Db, account: Account, list: VideoInput[], now: D
         thumbnailUrl: v.thumbnailUrl,
         publishedAt: v.publishedAt ? new Date(v.publishedAt) : null,
         durationSec: v.durationSec,
+        description: v.description ?? null,
+        hashtags: extractHashtags(v.title, v.description),
       })),
     )
     .onConflictDoUpdate({
@@ -60,6 +66,8 @@ async function recordVideos(db: Db, account: Account, list: VideoInput[], now: D
         url: sqlExcluded("url"),
         thumbnailUrl: sqlExcluded("thumbnail_url"),
         durationSec: sqlExcluded("duration_sec"),
+        description: sqlExcluded("description"),
+        hashtags: sqlExcluded("hashtags"),
       },
     })
     .returning({ id: videos.id, externalId: videos.externalId });
@@ -98,7 +106,12 @@ async function pollYouTube(db: Db, list: Account[], opts: Required<Pick<PollOpti
         videoCount: ch.videoCount,
       });
       const uploads = ch.uploadsPlaylistId ?? account.uploadsPlaylistId;
-      const vids = uploads ? await fetchRecentVideos(uploads, opts.apiKey, opts.videosPerAccount, opts.fetchFn) : [];
+      const discover = !account.catalogSyncedAt || opts.now.getTime() - account.catalogSyncedAt.getTime() >= 86400000;
+      const recent = uploads ? await fetchRecentVideos(uploads, opts.apiKey, discover ? 5000 : opts.videosPerAccount, opts.fetchFn, TRACK_FROM) : [];
+      const known = await db.select({ externalId: videos.externalId }).from(videos).where(and(eq(videos.accountId, account.id), gte(videos.publishedAt, new Date(TRACK_FROM))));
+      const freshIds = new Set(recent.map((v) => v.id));
+      const older = await fetchVideoIds(known.map((v) => v.externalId).filter((id) => !freshIds.has(id)), opts.apiKey, opts.fetchFn);
+      const vids = [...recent, ...older].filter((v) => v.publishedAt && v.publishedAt >= TRACK_FROM);
       result.videosUpdated += await recordVideos(
         db,
         account,
@@ -107,7 +120,7 @@ async function pollYouTube(db: Db, list: Account[], opts: Required<Pick<PollOpti
       );
       await db
         .update(accounts)
-        .set({ title: ch.title, handle: ch.handle, avatarUrl: ch.avatarUrl, uploadsPlaylistId: uploads, lastPolledAt: opts.now, lastError: null })
+        .set({ title: ch.title, handle: ch.handle, avatarUrl: ch.avatarUrl, uploadsPlaylistId: uploads, ...(discover ? { catalogSyncedAt: opts.now } : {}), lastPolledAt: opts.now, lastError: null })
         .where(eq(accounts.id, account.id));
       result.accountsOk++;
     } catch (e) {
@@ -142,7 +155,12 @@ async function pollTikTok(db: Db, list: Account[], cfg: TikTokConfig, fetchFn: F
     try {
       const token = await tiktokAccessToken(db, account, cfg, fetchFn, now);
       const user = await fetchUser(token, fetchFn);
-      const vids = await fetchVideos(token, limit, fetchFn);
+      const discover = !account.catalogSyncedAt || now.getTime() - account.catalogSyncedAt.getTime() >= 86400000;
+      const recent = await fetchVideos(token, discover ? 5000 : limit, fetchFn, TRACK_FROM);
+      const known = await db.select({ externalId: videos.externalId }).from(videos).where(and(eq(videos.accountId, account.id), gte(videos.publishedAt, new Date(TRACK_FROM))));
+      const freshIds = new Set(recent.map((v) => v.id));
+      const older = await queryVideos(token, known.map((v) => v.externalId).filter((id) => !freshIds.has(id)), fetchFn);
+      const vids = [...recent, ...older].filter((v) => v.publishedAt && v.publishedAt >= TRACK_FROM);
       await db.insert(accountSnapshots).values({
         accountId: account.id,
         takenAt: now,
@@ -153,7 +171,7 @@ async function pollTikTok(db: Db, list: Account[], cfg: TikTokConfig, fetchFn: F
       result.videosUpdated += await recordVideos(db, account, vids, now);
       await db
         .update(accounts)
-        .set({ title: user.displayName, avatarUrl: user.avatarUrl, lastPolledAt: now, lastError: null })
+        .set({ title: user.displayName, avatarUrl: user.avatarUrl, ...(discover ? { catalogSyncedAt: now } : {}), lastPolledAt: now, lastError: null })
         .where(eq(accounts.id, account.id));
       result.accountsOk++;
     } catch (e) {
@@ -179,6 +197,18 @@ async function pollAnalytics(db: Db, list: Account[], fetchFn: FetchFn, now: Dat
       for (const days of ANALYTICS_RANGES) {
         const s = await fetchChannelStats(access, account.externalId, days, now, fetchFn);
         const row = { accountId: account.id, rangeKey: `${days}d`, ...s, fetchedAt: now };
+        await db.insert(channelAnalytics).values(row).onConflictDoUpdate({ target: [channelAnalytics.accountId, channelAnalytics.rangeKey], set: row });
+      }
+      const vn = new Date(now.getTime() + 7 * 3600000);
+      for (let i = 0; i < 6; i++) {
+        const d = new Date(Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth() - i, 1));
+        const month = d.toISOString().slice(0, 7);
+        const key = `month:${month}`;
+        const [cached] = await db.select().from(channelAnalytics).where(and(eq(channelAnalytics.accountId, account.id), eq(channelAnalytics.rangeKey, key)));
+        // Final months are immutable after the source's reporting delay has passed.
+        if (i > 0 && cached && cached.fetchedAt.getTime() > new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 8)).getTime()) continue;
+        const s = await fetchMonthStats(access, account.externalId, month, now, fetchFn);
+        const row = { accountId: account.id, rangeKey: key, ...s, fetchedAt: now };
         await db.insert(channelAnalytics).values(row).onConflictDoUpdate({ target: [channelAnalytics.accountId, channelAnalytics.rangeKey], set: row });
       }
       const perVideo = await fetchVideoStats(access, account.externalId, 28, now, fetchFn);

@@ -1,4 +1,5 @@
 "use client";
+import { useCanManage } from "./Access";
 
 import { useEffect, useState } from "react";
 import type { AccountRow, Dashboard, LatestUpload, RangeKey } from "@/lib/metrics";
@@ -19,6 +20,7 @@ const RANGE_MS: Record<RangeKey, number> = { "24h": 86400_000, "7d": 7 * 86400_0
 const color = (p: "youtube" | "tiktok") => (p === "youtube" ? "var(--series-yt)" : "var(--series-tt)");
 
 export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; onSynced: () => void }) {
+  const canManage = useCanManage();
   const { t, tag, ago } = useI18n();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -47,9 +49,9 @@ export function SyncControls({ lastSync, onSynced }: { lastSync: string | null; 
         <i className={`live-dot ${stale ? "stale" : ""}`} aria-hidden />
         {stale ? t("Data may be stale") : t("Live")} · {t("synced {time}", { time: ago(lastSync) })}
       </span>
-      <button className="btn" type="button" onClick={sync} disabled={busy}>
+      {canManage && <button className="btn" type="button" onClick={sync} disabled={busy}>
         {busy ? t("Syncing…") : t("Sync now")}
-      </button>
+      </button>}
       {msg && (
         <span className="err" role="status">
           {msg}
@@ -181,17 +183,20 @@ export function Overview() {
       {data?.trackingSince && new Date(data.trackingSince).getTime() > new Date(data.generatedAt).getTime() - RANGE_MS[f.range] && (
         <div className="banner info">
           <span>
-            {t("Tracking started {time}. Growth before that can't be measured, so this period is incomplete: videos published in it count with all their views, and the charts fill in as new syncs arrive.", {
+            {t("Full channel coverage started {time}. Earlier growth is unavailable. Imported lifetime views are excluded from measured growth.", {
               time: new Date(data.trackingSince).toLocaleString(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
             })}
           </span>
         </div>
       )}
 
+      {data && !data.comparisonReady && <p className="muted">Period comparisons appear once all selected channels have enough tracking history.</p>}
+      {data?.accounts.some((a) => a.lastError || !a.lastPolledAt || Date.now() - new Date(a.lastPolledAt).getTime() > 1800000) && <div className="banner" role="alert">Some channels need attention. <a href="/channels">Check sync status</a></div>}
       {data && (
         <div className={loading ? "refetching" : undefined}>
           <div className="kpis">
             <Kpi
+              noDelta={!data.comparisonReady}
               label={t("Total followers")}
               value={data.kpis.followers}
               note={t("{n} net new", { n: signed(data.kpis.followersGained) })}
@@ -202,9 +207,9 @@ export function Overview() {
               trend={total(data.followersSeries)}
               hint={t("YouTube subscribers + TikTok followers. YouTube rounds public subscriber counts, so its growth moves in steps.")}
             />
-            <Kpi label={t("Views gained")} value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel={t("vs prev.")} trend={total(data.viewsSeries)} hint={t("New views on tracked videos during the period.")} />
-            <Kpi label={t("Engagements")} value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel={t("vs prev.")} hint={t("New likes + comments + shares on tracked videos.")} />
-            <Kpi
+            <Kpi noDelta={!data.comparisonReady} label={t("Views gained")} value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel={t("vs prev.")} trend={total(data.viewsSeries)} hint={t("New views on tracked videos during the period.")} />
+            <Kpi noDelta={!data.comparisonReady} label={t("Engagements")} value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel={t("vs prev.")} hint={t("New likes + comments + shares on tracked videos.")} />
+            {data.analytics.total > 0 && <Kpi
               label={t("Avg view duration")}
               value={data.analytics.avdSec ?? 0}
               valueText={data.analytics.avdSec == null ? "—" : (duration(Math.round(data.analytics.avdSec)) ?? "—")}
@@ -214,19 +219,19 @@ export function Overview() {
               previous={0}
               period={period}
               hint={t("Average time watched per view (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
-            />
-            <Kpi
+            />}
+            {data.analytics.total > 0 && <Kpi
               label={t("Impressions CTR")}
               value={data.analytics.ctr ?? 0}
               valueText={data.analytics.ctr == null ? "—" : `${data.analytics.ctr.toFixed(1)}%`}
               noDelta
-              note={data.analytics.impressions == null ? t("Only in YouTube Studio, not available through the YouTube API") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
+              note={data.analytics.impressions == null ? t("Unavailable from the current YouTube Analytics connection") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
               current={0}
               previous={0}
               period={period}
               hint={t("How often people click a thumbnail after seeing it (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
-            />
-            <Kpi label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
+            />}
+            <Kpi noDelta={!data.comparisonReady} label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
 
           <section className="card section" aria-label={t("New uploads (last 48h)")}>

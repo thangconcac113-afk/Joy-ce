@@ -12,6 +12,8 @@ const ICONS = {
 
 export const LINKS = [
   { href: "/", label: "Dashboard", icon: ICONS.overview },
+  { href: "/brief", label: "Leadership brief", icon: ICONS.report },
+  { href: "/insights", label: "Content insights", icon: ICONS.overview },
   { href: "/library", label: "Video library", icon: ICONS.library },
   { href: "/report", label: "Monthly report", icon: ICONS.report },
   { href: "/channels", label: "Channels", icon: ICONS.channels },

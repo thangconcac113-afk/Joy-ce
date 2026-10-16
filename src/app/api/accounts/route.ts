@@ -3,8 +3,9 @@ import { asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { accounts } from "@/db/schema";
-import { jsonError, withUser } from "@/lib/api";
+import { jsonError, withUser, withManager } from "@/lib/api";
 import { tiktokConfig } from "@/lib/tiktok";
+import { currentUser, canManageEmail } from "@/auth";
 import { resolveChannel, YouTubeError } from "@/lib/youtube";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export function GET() {
       .orderBy(asc(accounts.platform), asc(accounts.title));
     return NextResponse.json({
       accounts: rows,
+      canManage: canManageEmail((await currentUser())!.email),
       config: {
         youtube: Boolean(process.env.YOUTUBE_API_KEY),
         tiktok: Boolean(tiktokConfig()),
@@ -42,7 +44,7 @@ const addSchema = z.object({ input: z.string().min(2).max(200) });
 
 /** Add a YouTube channel by @handle, ID or URL. TikTok accounts connect via OAuth. */
 export function POST(req: Request) {
-  return withUser(async () => {
+  return withManager(async () => {
     const parsed = addSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return jsonError("Enter a channel @handle, ID or URL.", 400);
     const key = process.env.YOUTUBE_API_KEY;
@@ -72,7 +74,7 @@ export function POST(req: Request) {
 }
 
 export function DELETE(req: Request) {
-  return withUser(async () => {
+  return withManager(async () => {
     const id = Number(new URL(req.url).searchParams.get("id"));
     if (!Number.isInteger(id) || id <= 0) return jsonError("Invalid account id.", 400);
     const db = await getDb();
