@@ -1,5 +1,6 @@
 "use client";
 
+import { useCanManage } from "./Access";
 import { useState } from "react";
 import { Img } from "./Img";
 import { useLive } from "./useLive";
@@ -23,6 +24,7 @@ interface AccountsResponse {
 }
 
 export function Channels({ connected, connectError, analytics }: { connected?: string; connectError?: string; analytics?: string }) {
+  const canManage = useCanManage();
   const { t, ago } = useI18n();
   const { data, error, reload } = useLive<AccountsResponse>("/api/accounts", 60_000);
   const [input, setInput] = useState("");
@@ -71,7 +73,8 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
         </div>
       )}
 
-      <div className="connect">
+      {!canManage && <div className="banner info">Read-only access. Channel connections are managed by your workspace manager.</div>}
+      {canManage && <div className="connect">
         <section className="card" aria-label="Add YouTube channel">
           <h2 className="card-title">
             <i className="dot dot-yt" aria-hidden /> {t("Add a YouTube channel")}
@@ -106,7 +109,7 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
             )}
           </div>
         </section>
-      </div>
+      </div>}
 
       <section className="card section" aria-label="Tracked channels">
         <div className="section-head">
@@ -153,7 +156,7 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
                     <td>
                       {a.lastError ? (
                         <span className="err">⚠ {a.lastError}</span>
-                      ) : a.lastPolledAt ? (
+                      ) : a.lastPolledAt && Date.now() - new Date(a.lastPolledAt).getTime() > 1800000 ? (<span className="err">Sync overdue · {ago(a.lastPolledAt)}</span>) : a.lastPolledAt ? (
                         <span className="status-ok">{t("✓ Synced {time}", { time: ago(a.lastPolledAt) })}</span>
                       ) : (
                         <span className="muted">{t("Waiting for first sync")}</span>
@@ -163,19 +166,19 @@ export function Channels({ connected, connectError, analytics }: { connected?: s
                       {a.platform === "tiktok" && expiring && <div className="err">{t("Authorisation expires soon. Reconnect this account.")}</div>}
                     </td>
                     <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                      {a.platform === "youtube" && data.config.analytics && (
+                      {canManage && a.platform === "youtube" && data.config.analytics && (
                         <a className="btn" href="/api/youtube/connect" style={{ marginRight: 8 }}>
                           {a.analyticsConnected ? t("Reconnect Analytics") : t("Connect Analytics")}
                         </a>
                       )}
-                      {a.platform === "youtube" && data.config.analytics && !a.analyticsConnected && (
+                      {canManage && a.platform === "youtube" && data.config.analytics && !a.analyticsConnected && (
                         <a className="btn" href="/api/youtube/connect?any=1" style={{ marginRight: 8 }} title={t("For a channel manager who signs in with a non-company Google account (e.g. Gmail)")}>
                           {t("Connect with another Google account")}
                         </a>
                       )}
-                      <button className="btn btn-danger" type="button" onClick={() => remove(a.id, a.title)}>
+                      {canManage && <button className="btn btn-danger" type="button" onClick={() => remove(a.id, a.title)}>
                         {t("Remove")}
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 );

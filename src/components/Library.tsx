@@ -1,5 +1,6 @@
 "use client";
 
+import { CONTENT_TYPES } from "@/lib/insights";
 import { useEffect, useState } from "react";
 import type { VideoRow } from "@/lib/metrics";
 import { Filters, toQuery, type FilterState } from "./Filters";
@@ -18,13 +19,16 @@ export function Library() {
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
   const [page, setPage] = useState(1);
+  const [length,setLength] = useState("");
+  const [publishedDays,setPublishedDays] = useState("");
+  const [contentType,setContentType] = useState("");
   useEffect(() => {
     const id = window.setTimeout(() => setDebounced(q), 300);
     return () => window.clearTimeout(id);
   }, [q]);
-  useEffect(() => setPage(1), [f, debounced, sort]);
+  useEffect(() => setPage(1), [f, debounced, sort, length, publishedDays, contentType]);
 
-  const { data, error, loading } = useLive<{ total: number; items: VideoRow[] }>(`/api/videos?${toQuery(f, { q: debounced, sort, page })}`, 120_000);
+  const { data, error, loading } = useLive<{ total: number; items: VideoRow[] }>(`/api/videos?${toQuery(f, { q: debounced, sort, page, duration:length, days:publishedDays, type:contentType })}`, 120_000);
   const pages = data ? Math.max(1, Math.ceil(data.total / 24)) : 1;
 
   return (
@@ -52,6 +56,11 @@ export function Library() {
         </div>
       </div>
       <Filters value={f} onChange={setF} showRange={false} />
+      <div className="filters">
+        <select className="select" aria-label="Video duration" value={length} onChange={e=>setLength(e.target.value)}><option value="">All durations</option><option value="short">Up to 60 seconds</option><option value="medium">61-180 seconds</option><option value="long">Over 3 minutes</option></select>
+        <select className="select" aria-label="Publication period" value={publishedDays} onChange={e=>setPublishedDays(e.target.value)}><option value="">All tracked dates</option><option value="30">Published in last 30 days</option><option value="90">Published in last 90 days</option><option value="365">Published in last 365 days</option></select>
+        <select className="select" aria-label="Content type" value={contentType} onChange={e=>setContentType(e.target.value)}><option value="">All content types</option>{CONTENT_TYPES.map(t=><option key={t}>{t}</option>)}</select>
+      </div>
       {error && (
         <div className="banner" role="alert">
           {t("Couldn't load videos: {error}", { error })}
@@ -61,7 +70,7 @@ export function Library() {
         {data && data.items.length === 0 && <div className="empty">{t("No videos match these filters.")}</div>}
         <div className="grid">
           {data?.items.map((v) => (
-            <a key={v.id} className="tile" href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
+            <a key={v.id} className="tile" href={`/library/${v.id}`}>
               <div className="tile-media">
                 {/* Vertical TikTok covers sit inside the same 16:9 frame over a blurred fill, so the grid stays even. */}
                 {v.thumbnailUrl && v.platform === "tiktok" && <Img className="blur" src={v.thumbnailUrl} />}

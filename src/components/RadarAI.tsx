@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "./I18n";
 
-type Message = { role: "assistant" | "user"; text: string };
+type Message = { role: "assistant" | "user"; text: string; sources?: {title:string;href:string}[] };
 type SpeechResult = { 0: { transcript: string } };
 type SpeechEvent = { results: ArrayLike<SpeechResult> };
 type SpeechRecognitionLike = {
@@ -62,11 +62,16 @@ export function RadarAI() {
       const response = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, range: "30d", lang: locale }),
+        body: JSON.stringify({ question, lang: locale, ...(() => {
+          const q = new URLSearchParams(window.location.search);
+          let saved: {range?:string;platform?:string;account?:number|null} = {};
+          try { saved = JSON.parse(localStorage.getItem(window.location.pathname.startsWith("/insights") ? "tsvt.insights" : window.location.pathname.startsWith("/library") ? "tsvt.library" : "tsvt.overview") || "{}"); } catch { /* default scope */ }
+          return {range:q.get("range") || saved.range || "30d",platform:q.get("platform") || saved.platform || "all",account:q.get("account") ? Number(q.get("account")) : saved.account ?? null};
+        })() }),
       });
       const body = await response.json().catch(() => ({}));
       const answer = response.ok ? body.answer : body.error ?? t("I couldn’t read the performance data right now.");
-      setMessages((items) => [...items, { role: "assistant", text: answer }]);
+      setMessages((items) => [...items, { role: "assistant", text: answer, sources: response.ok ? body.sources : undefined }]);
       if (response.ok) speak(answer);
     } catch {
       setMessages((items) => [...items, { role: "assistant", text: t("I couldn’t reach the performance data. Please try again.") }]);
@@ -114,7 +119,7 @@ export function RadarAI() {
             </div>
           </header>
           <div className="radar-messages" aria-live="polite">
-            {messages.map((message, index) => <div className={`radar-message ${message.role}`} key={index}>{message.role === "assistant" ? t(message.text) : message.text}</div>)}
+            {messages.map((message, index) => <div className={`radar-message ${message.role}`} key={index}>{message.role === "assistant" ? t(message.text) : message.text}{message.sources?.map(source=><a className="sample-note" key={source.href} href={source.href}>{source.title}</a>)}</div>)}
             {busy && <div className="radar-message assistant thinking"><i /><i /><i /></div>}
             {messages.length === 1 && <div className="radar-prompts">
               {["What is our top video?", "Which channel performs best?", "Are our channels growing?"].map((prompt) => <button type="button" key={prompt} onClick={() => void ask(t(prompt))}>{t(prompt)}</button>)}

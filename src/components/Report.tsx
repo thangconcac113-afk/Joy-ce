@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { MonthlyReport } from "@/lib/metrics";
 import { Img } from "./Img";
 import { Kpi } from "./Kpi";
@@ -20,11 +20,12 @@ export function Report() {
   const { t, tag, date } = useI18n();
   const months = recentMonths();
   const [month, setMonth] = useState(months[0]);
+  useEffect(() => { const m = new URLSearchParams(window.location.search).get("month"); if (m && months.includes(m)) setMonth(m); }, []);
   const { data, error } = useLive<MonthlyReport>(`/api/report?month=${month}`, 120_000);
   const label = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(tag, { month: "long", year: "numeric" });
 
   const k = data?.kpis;
-  const pct = k ? pctChange(k.viewsGained, k.viewsGainedPrev) : null;
+  const pct = k && data?.comparisonReady ? pctChange(k.viewsGained, k.viewsGainedPrev) : null;
   const top = data?.topVideos[0];
   const partial = data?.trackingSince && new Date(data.trackingSince) > new Date(`${month}-02T00:00:00`);
 
@@ -34,13 +35,13 @@ export function Report() {
           t("In {month}, Team Secret channels gained {views} views ({change}), {followers} net new followers and {engagements} engagements, with {videos} videos published.", {
             month: label(month),
             views: fmtFull(k.viewsGained),
-            change: pct === null ? t("no previous month to compare") : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% ${t("vs previous month")}`,
+            change: pct === null ? t("no previous month to compare") : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}% ${t(data?.complete ? "vs previous month" : "vs same elapsed time last month")}`,
             followers: signed(k.followersGained),
             engagements: fmtFull(k.engagements),
             videos: k.videosPublished,
           }),
           top ? t("Top video: “{title}” ({channel}) with {n} views gained.", { title: top.title, channel: top.accountTitle, n: fmtFull(top.viewsGained) }) : "",
-          data.avdSec != null ? t("Average view duration over the last 30 days is {avd}.", { avd: duration(Math.round(data.avdSec)) ?? "" }) : "",
+          data.avdSec != null ? t("Average view duration for this month is {avd}.", { avd: duration(Math.round(data.avdSec)) ?? "" }) : "",
         ]
           .filter(Boolean)
           .join(" ")
@@ -83,22 +84,23 @@ export function Report() {
 
       {data && k && (
         <>
+          <p className="muted">{date(data.period.start)} to {date(data.period.end)} · Comparison: {date(data.period.previousStart)} to {date(data.period.previousEnd)}{!data.comparisonReady && " · Insufficient tracking history for growth comparisons"}</p>
           <section className="card report-summary" aria-label={t("Summary")}>
             <p>{summary}</p>
           </section>
 
           <div className="kpis">
-            <Kpi label={t("Views gained")} value={k.viewsGained} current={k.viewsGained} previous={k.viewsGainedPrev} period="" compareLabel={t("vs previous month")} />
-            <Kpi label={t("Engagements")} value={k.engagements} current={k.engagements} previous={k.engagementsPrev} period="" compareLabel={t("vs previous month")} />
-            <Kpi label={t("Net followers")} value={k.followersGained} valueText={signed(k.followersGained)} current={k.followersGained} previous={k.followersGainedPrev} period="" compareLabel={t("vs previous month")} note={t("{n} total followers", { n: fmt(k.followers) })} />
+            <Kpi noDelta={!data.comparisonReady} label={t("Views gained")} value={k.viewsGained} current={k.viewsGained} previous={k.viewsGainedPrev} period="" compareLabel={t(data?.complete ? "vs previous month" : "vs same elapsed time last month")} />
+            <Kpi noDelta={!data.comparisonReady} label={t("Engagements")} value={k.engagements} current={k.engagements} previous={k.engagementsPrev} period="" compareLabel={t(data?.complete ? "vs previous month" : "vs same elapsed time last month")} />
+            <Kpi noDelta={!data.comparisonReady} label={t("Net followers")} value={k.followersGained} valueText={signed(k.followersGained)} current={k.followersGained} previous={k.followersGainedPrev} period="" compareLabel={t(data?.complete ? "vs previous month" : "vs same elapsed time last month")} note={t("{n} total followers", { n: fmt(k.followers) })} />
             <Kpi
               label={t("Videos published")}
               value={k.videosPublished}
               current={k.videosPublished}
               previous={k.videosPublishedPrev}
               period=""
-              compareLabel={t("vs previous month")}
-              noDelta={!data.complete}
+              compareLabel={t(data?.complete ? "vs previous month" : "vs same elapsed time last month")}
+              noDelta={!data.comparisonReady}
               note={data.complete ? undefined : t("Month in progress: {n} days counted so far", { n: new Date().getDate() })}
             />
             <Kpi
@@ -106,7 +108,7 @@ export function Report() {
               value={data.avdSec ?? 0}
               valueText={data.avdSec == null ? "—" : (duration(Math.round(data.avdSec)) ?? "—")}
               noDelta
-              note={data.avdSec == null ? t("Not connected. Connect YouTube Analytics on the Channels page.") : t("Last {days} days", { days: 30 })}
+              note={data.avdSec == null ? t("Monthly watch duration is not available yet") : t("Selected calendar month")}
               current={0}
               previous={0}
               period=""
@@ -179,7 +181,7 @@ export function Report() {
           </section>
 
           <p className="muted report-foot">
-            {t("Source: YouTube Data API and YouTube Analytics. Generated {time}.", { time: new Date(data.generatedAt).toLocaleString(tag) })}
+            {t("Source: YouTube Data API, YouTube Analytics and TikTok Display API. Generated {time}.", { time: new Date(data.generatedAt).toLocaleString(tag) })}
           </p>
         </>
       )}
