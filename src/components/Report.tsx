@@ -1,4 +1,5 @@
 "use client";
+import { LoadingState } from "./LoadingState";
 
 import { useState, useEffect } from "react";
 import type { MonthlyReport } from "@/lib/metrics";
@@ -205,7 +206,7 @@ export function Report() {
           </p>
         </>
       )}
-      {!data && !error && <div className="empty">{t("Loading…")}</div>}
+      {!data && !error && <LoadingState />}
     </>
   );
 }
