@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { HashtagOptions } from "./HashtagOptions";
+import { useState, useEffect } from "react";
 import { useLive } from "./useLive";
 import { Filters, toQuery } from "./Filters";
 import { useFilterState } from "./useFilterState";
@@ -10,13 +11,18 @@ type Group = { key:string; label:string; accountTitle:string; platform:"youtube"
 export function Insights() {
   const [f,setF] = useFilterState("tsvt.insights",{range:"90d",platform:"all",account:null});
   const [hours,setHours] = useState(168); const [days,setDays] = useState(90); const [type,setType] = useState(""); const [group,setGroup] = useState("contentType");
+  const [hashtag,setHashtag] = useState("");
+  useEffect(()=>{setHashtag(new URLSearchParams(window.location.search).get("hashtag")||"");},[]);
+  const changeHashtag=(value:string)=>{setHashtag(value);const q=new URLSearchParams(window.location.search);if(value)q.set("hashtag",value);else q.delete("hashtag");window.history.replaceState(null,"",`${window.location.pathname}?${q}`);};
   const [campaign,setCampaign] = useState("");
-  const qs = `${toQuery(f)}&hours=${hours}&days=${days}&type=${encodeURIComponent(type)}&group=${group}&campaign=${encodeURIComponent(campaign)}`;
+  const qs = `${toQuery(f)}&hours=${hours}&days=${days}&type=${encodeURIComponent(type)}&group=${group}&campaign=${encodeURIComponent(campaign)}&hashtag=${encodeURIComponent(hashtag)}`;
   const {data,error,loading} = useLive<{items:InsightVideo[];groups:Group[];eligible:number}>(`/api/insights?${qs}`,120000);
   return <>
-    <div className="page-head"><div><h1>Content insights</h1><p>Find repeatable winners, compared at the same age within each channel.</p></div><a className="btn" href="/library">Tag videos in library</a></div>
+    <div className="page-head"><div><h1>Content insights</h1><p>Find repeatable winners, compared at the same age within each channel.</p></div><div className="head-actions"><a className="btn" href={`/api/insights/export?${qs}`}>Export filtered CSV</a><a className="btn" href="/library">Tag videos in library</a></div></div>
+    <HashtagOptions platform={f.platform} account={f.account} id="insight-hashtags"/>
     <Filters value={f} onChange={setF} showRange={false}/>
     <div className="filters insight-filters">
+      <label>Hashtag<input className="input" list="insight-hashtags" maxLength={100} value={hashtag} onChange={e=>changeHashtag(e.target.value)} placeholder="#EWC, #VCT or #TSW"/></label>
       <label>Published in<select className="select" value={days} onChange={e=>setDays(Number(e.target.value))}><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={365}>Last 365 days</option></select></label>
       <label>Compare at age<select className="select" value={hours} onChange={e=>setHours(Number(e.target.value))}><option value={24}>24 hours</option><option value={72}>72 hours</option><option value={168}>7 days</option></select></label>
       <label>Content type<select className="select" value={type} onChange={e=>setType(e.target.value)}><option value="">All content types</option>{CONTENT_TYPES.map(t=><option key={t}>{t}</option>)}</select></label>
