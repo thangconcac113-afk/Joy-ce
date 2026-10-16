@@ -13,8 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await currentUser();
   if (!user) redirect("/signin");
   const locale = await getLocale();
+  const canManage = canManageEmail(user.email);
   return (
-    <AccessProvider value={canManageEmail(user.email)}><div className="shell">
+    <AccessProvider value={canManage}><div className="shell">
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark" aria-hidden>
@@ -25,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Nav className="nav" />
         <div className="sidebar-foot">
           <LangSwitch />
+          <span className="access-badge" title={canManage ? "Manage channels, content tags and targets" : "View metrics and export reports"}>{canManage ? "Manager access" : "Read-only access"}</span>
           <span>{user.email}</span>
           {!authDisabled && (
             <form
