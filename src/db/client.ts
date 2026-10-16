@@ -23,13 +23,15 @@ async function open(): Promise<Db> {
     const client = await pool.connect();
     try {
       // Serverless instances must not apply the same pending migration concurrently.
-      await client.query("SELECT pg_advisory_lock(817264901)");
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(817264902)");
       try {
         await migrate(drizzle(client, { schema }), { migrationsFolder: MIGRATIONS });
       } finally {
-        await client.query("SELECT pg_advisory_unlock(817264901)");
+        await client.query("COMMIT");
       }
     } catch (error) {
+      await client.query("ROLLBACK");
       client.release();
       await pool.end();
       throw error;
