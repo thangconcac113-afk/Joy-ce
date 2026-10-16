@@ -491,7 +491,7 @@ export interface MonthlyReport {
     videosPublished: number;
     videosPublishedPrev: number;
   };
-  accounts: (AccountRow & { avdSec: number | null })[];
+  accounts: (AccountRow & { avdSec: number | null; viewsGainedPrev: number; engagementsGainedPrev: number; followersGainedPrev: number | null; videosPublishedPrev: number; topVideos: VideoRow[] })[];
   topVideos: VideoRow[];
   /** Average view duration over the last 30 days, weighted by views. Owner-only data, so it can be missing. */
   avdSec: number | null;
@@ -512,7 +512,7 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
       sql`select a.id, a.platform, a.title, a.handle, a.avatar_url, a.last_polled_at, a.last_error from accounts a order by a.platform, a.title`,
     ),
     rows<{ account_id: number; n: string }>(db, sql`select v.account_id, count(*) as n from videos v where v.published_at >= ${iso(r.start)}::timestamptz and v.published_at < ${iso(r.end)}::timestamptz group by 1`),
-    rows<{ n: string }>(db, sql`select count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.prevEnd)}::timestamptz`),
+    rows<{ account_id: number; n: string }>(db, sql`select v.account_id, count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.prevEnd)}::timestamptz group by 1`),
     rows<{ t: string | Date | null }>(db, sql`select case when count(t) = count(*) then max(t) end as t from (select a.id, min(s.taken_at) as t from accounts a left join account_snapshots s on s.account_id = a.id group by a.id) coverage`),
     rows<{ account_id: number; views: number | null; avd_sec: number | null }>(db, sql`select account_id, views, avd_sec from channel_analytics where range_key = ${"month:" + month}`),
   ]);
@@ -540,6 +540,11 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
       lastPolledAt: toIso(a.last_polled_at),
       lastError: a.last_error,
       avdSec: anById.get(a.id)?.avd_sec ?? null,
+      viewsGainedPrev: sum(prev.filter(v => v.account_id === a.id).map(v => num(v.views_gained))),
+      engagementsGainedPrev: sum(prev.filter(v => v.account_id === a.id).map(v => num(v.engagements_gained))),
+      followersGainedPrev: folPrev.find(v => v.id === a.id)?.gained == null ? null : num(folPrev.find(v => v.id === a.id)?.gained),
+      videosPublishedPrev: num(publishedPrev.find(v => v.account_id === a.id)?.n),
+      topVideos: [...own].sort((x,y) => y.viewsGained-x.viewsGained).filter(v => v.viewsGained > 0).slice(0,5),
     };
   });
 
@@ -561,7 +566,7 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
       followersGained: sum(fol.map((x) => num(x.gained))),
       followersGainedPrev: sum(folPrev.map((x) => num(x.gained))),
       videosPublished: sum([...pubById.values()]),
-      videosPublishedPrev: num(publishedPrev[0]?.n),
+      videosPublishedPrev: sum(publishedPrev.map(v => num(v.n))),
     },
     accounts,
     topVideos: [...videos].sort((a, b) => b.viewsGained - a.viewsGained).slice(0, 5),
