@@ -22,7 +22,7 @@ describe("monthly PDF", () => {
         ]);
       }
     }
-    const report = (await getMonthlyReport(db, "2026-10", new Date("2026-10-16T00:00:00Z")))!;
+    const report = (await getMonthlyReport(db, "2026-10", new Date("2026-10-16T00:00:00Z"), { growth: true }))!;
     expect(report.kpis.videosPublishedPrev).toBe(2);
     expect(report.accounts.map(a => a.videosPublishedPrev)).toEqual([1, 1]);
     expect(report.accounts.every(a => a.topVideos.length === 5 && a.topVideos.every(v => v.accountId === a.id))).toBe(true);
