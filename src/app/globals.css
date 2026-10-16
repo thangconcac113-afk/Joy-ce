@@ -261,7 +261,8 @@ table.data tbody tr:hover { background: var(--surface-2); }
 .link { font-size: 12.5px; font-weight: 600; text-decoration: none; color: var(--ink-2); white-space: nowrap; }
 .link:hover { color: var(--ink); text-decoration: underline; }
 .trend-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
-.trend-list li a { display: grid; grid-template-columns: 16px 76px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 8px; text-decoration: none; }
+.trend-list li a { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 8px; text-decoration: none; }
+.trend-list li a:has(.rank) { grid-template-columns: 16px 76px minmax(0, 1fr) auto; }
 .trend-list li a:hover { background: var(--surface-2); }
 .rank { color: var(--muted); font-weight: 700; font-size: 12px; text-align: center; }
 .tthumb { width: 76px; aspect-ratio: 16 / 9; border-radius: 5px; object-fit: cover; background: var(--surface-2); display: block; }
