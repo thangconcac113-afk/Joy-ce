@@ -29,7 +29,7 @@ export function useAccountOptions() {
   return options;
 }
 
-export function Filters({ value, onChange, showRange = true }: { value: FilterState; onChange: (v: FilterState) => void; showRange?: boolean }) {
+export function Filters({ value, onChange, showRange = true, showChannel = true }: { value: FilterState; onChange: (v: FilterState) => void; showRange?: boolean; showChannel?: boolean }) {
   const options = useAccountOptions();
   const { t } = useI18n();
   const visible = options.filter((o) => value.platform === "all" || o.platform === value.platform);
@@ -56,7 +56,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
         ))}
       </div>
       </div>
-      <label className="filter-field"><span className="control-label">{t("Channel")}</span>
+      {showChannel && <label className="filter-field"><span className="control-label">{t("Channel")}</span>
       <select
         className="select"
         aria-label="Channel"
@@ -70,7 +70,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
           </option>
         ))}
       </select>
-      </label>
+      </label>}
     </div>
   );
 }
