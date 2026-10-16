@@ -317,3 +317,29 @@ table.data tbody tr:hover { background: var(--surface-2); }
   .main { padding: 0 !important; }
   .card { box-shadow: none !important; break-inside: avoid; }
 }
+
+/* Content insights and video context reuse the dashboard's existing tokens. */
+.insight-filters label,.metadata-form label { display:grid; gap:6px; font-size:12px; color:var(--ink-2); }
+.insight-filters { align-items:end; }
+.sample-note { display:block; color:var(--ink-2); font-size:12px; margin-top:4px; }
+.video-link { display:flex; align-items:center; gap:12px; max-width:520px; color:var(--ink); text-decoration:none; }
+.video-link:hover { text-decoration:underline; }
+.video-link .tthumb { flex:none; }
+.detail-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:24px; margin-bottom:24px; align-items:start; }
+.video-cover { width:100%; max-height:360px; object-fit:contain; background:var(--surface-2); border-radius:var(--radius); }
+.video-heading { font-size:26px; max-width:850px; }
+.metadata-form { display:grid; gap:12px; padding:24px; }
+.metadata-form .input,.metadata-form .select { width:100%; }
+.detail-metrics { padding:20px; display:flex; flex-wrap:wrap; gap:24px; }
+.detail-metrics b { display:block; font-size:22px; margin-top:6px; }
+@media(max-width:760px){.detail-grid{grid-template-columns:1fr}.insight-filters label{width:100%}.insight-filters .select{width:100%}.video-heading{font-size:22px}}
+.brief-strip { display:flex; gap:20px; justify-content:space-between; flex-wrap:wrap; padding:16px 0; margin-bottom:16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--ink-2); }
+.brief-takeaways,.brief-targets { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:28px; }
+.brief-takeaways article { padding:24px; }
+.brief-takeaways small { color:var(--ink-2); text-transform:uppercase; letter-spacing:.08em; }
+.brief-takeaways h2 { font-size:23px; line-height:1.25; margin:14px 0 12px; }
+.brief-takeaways p { color:var(--ink-2); margin:0; }
+.brief-targets progress { width:100%; height:8px; accent-color:var(--series-yt); }
+.target-form { display:flex; gap:16px; flex-wrap:wrap; padding:20px; align-items:end; margin-bottom:24px; }
+.target-form label { display:grid; gap:6px; }
+@media(max-width:760px){.brief-takeaways,.brief-targets{grid-template-columns:1fr}.target-form label{width:100%}.brief-strip{gap:8px}}
