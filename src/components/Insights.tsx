@@ -1,4 +1,5 @@
 "use client";
+import { LoadingState } from "./LoadingState";
 import { HashtagOptions } from "./HashtagOptions";
 import { useState, useEffect } from "react";
 import { useLive } from "./useLive";
@@ -43,6 +44,6 @@ export function Insights() {
         {data.items.map(v=><tr key={v.id}><td><a className="video-link" href={`/library/${v.id}`}><Img className="tthumb" src={v.thumbnailUrl}/><span>{v.title}<small className="sample-note">{v.accountTitle} · {new Date(v.publishedAt).toLocaleDateString("en-GB")}</small></span></a></td><td>{v.contentType||"Untagged"}<small className="sample-note">{[v.game,v.campaign].filter(Boolean).join(" · ")}</small></td><td className="num">{fmtFull(v.views)}</td><td className="num">{v.ageViews==null ? "Unscored" : fmtFull(v.ageViews)}</td></tr>)}
       </tbody></table></section>
     </>}
-    {!data&&!error&&<div className="empty">{loading ? "Loading content insights..." : "No data yet"}</div>}
+    {!data&&!error&&<LoadingState />}
   </>;
 }
