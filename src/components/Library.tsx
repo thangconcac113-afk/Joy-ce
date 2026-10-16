@@ -77,11 +77,11 @@ export function Library() {
         </div>
       )}
       {!data && !error && <LoadingState kind="library" />}
-      {data && <section className={`card ${loading && data ? "refetching" : ""}`} aria-label="Videos">
+      {data && <section className={`card ${loading && data ? "refetching" : ""}`} aria-label="Videos" aria-busy={loading}>
         {data && data.items.length === 0 && <div className="empty">{t("No videos match these filters.")}</div>}
         {view === "list" ? <div className="table-wrap"><table className="data video-table"><thead><tr><th>Video</th><th>Published</th><th className="num">Views gained · 24h</th><th className="num">Total views</th><th className="num"><abbr title="Lifetime interactions divided by lifetime views. YouTube: likes + comments. TikTok: likes + comments + shares.">Engagement / views</abbr></th></tr></thead><tbody>{data.items.map(v => <tr key={v.id}>
           <td><a className="video-link" href={`/library/${v.id}`}><Img className="tthumb" src={v.thumbnailUrl} /><span className="tinfo"><span className="list-video-title" title={v.title}>{v.title}</span><span className="tmeta"><i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />{v.accountTitle} · {v.platform === "youtube" ? "YouTube" : "TikTok"}{duration(v.durationSec) && ` · ${duration(v.durationSec)}`}</span></span></a></td>
-          <td>{date(v.publishedAt)}</td><td className="num gained-value">{signed(v.viewsGained)}</td><td className="num">{fmt(v.views)}</td><td className="num">{v.views > 0 ? `${((v.likes + v.comments + (v.platform === "tiktok" ? v.shares : 0)) / v.views * 100).toFixed(1)}%` : "—"}</td>
+          <td>{date(v.publishedAt)}</td><td className="num gained-value"><span className="mobile-cell-label">Gained · 24h</span>{signed(v.viewsGained)}</td><td className="num"><span className="mobile-cell-label">Total views</span>{fmt(v.views)}</td><td className="num"><span className="mobile-cell-label">Engagement rate</span>{v.views > 0 ? `${((v.likes + v.comments + (v.platform === "tiktok" ? v.shares : 0)) / v.views * 100).toFixed(1)}%` : "—"}</td>
         </tr>)}</tbody></table></div> : <div className="grid">
           {data?.items.map((v) => (
             <a key={v.id} className="tile" href={`/library/${v.id}`}>
