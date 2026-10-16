@@ -11,12 +11,12 @@ const ICONS = {
 };
 
 export const LINKS = [
-  { href: "/", label: "Dashboard", icon: ICONS.overview },
-  { href: "/brief", label: "Leadership brief", icon: ICONS.report },
-  { href: "/insights", label: "Content insights", icon: ICONS.overview },
-  { href: "/library", label: "Video library", icon: ICONS.library },
-  { href: "/report", label: "Monthly report", icon: ICONS.report },
-  { href: "/channels", label: "Channels", icon: ICONS.channels },
+  { href: "/", label: "Dashboard", description: "Live channel performance", group: "Analytics", icon: ICONS.overview },
+  { href: "/brief", label: "Leadership brief", description: "Monthly priorities & targets", group: "Analytics", icon: ICONS.report },
+  { href: "/insights", label: "Content insights", description: "Compare content performance", group: "Analytics", icon: ICONS.overview },
+  { href: "/library", label: "Video library", description: "Search videos & campaigns", group: "Content & reports", icon: ICONS.library },
+  { href: "/report", label: "Monthly report", description: "Download channel reports", group: "Content & reports", icon: ICONS.report },
+  { href: "/channels", label: "Channels", description: "Manage connected accounts", group: "Workspace", icon: ICONS.channels },
 ];
 
 export function Nav({ className }: { className: string }) {
@@ -24,13 +24,16 @@ export function Nav({ className }: { className: string }) {
   const { t } = useI18n();
   return (
     <nav className={className} aria-label={t("Main")}>
-      {LINKS.map((l) => (
-        <a key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>
+      {LINKS.map((l, i) => (
+        <div className="nav-item" key={l.href}>
+        {(i === 0 || LINKS[i-1].group !== l.group) && <div className="nav-group-label">{t(l.group)}</div>}
+        <a href={l.href} aria-current={path === l.href || (l.href !== "/" && path.startsWith(`${l.href}/`)) ? "page" : undefined}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d={l.icon} />
           </svg>
-          {t(l.label)}
+          <span className="nav-copy"><span>{t(l.label)}</span><small>{t(l.description)}</small></span>
         </a>
+        </div>
       ))}
     </nav>
   );
