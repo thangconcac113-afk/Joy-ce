@@ -135,7 +135,7 @@ export function RadarAI() {
         </section>
       )}
       <button className="radar-launch" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={open ? t("Close TS Minion") : t("Open TS Minion")}>
-        <span className="radar-orb" aria-hidden><i /></span><span><b>{t("Ask TS Minion")}</b><small>{t("Voice + live insights")}</small></span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden><rect x="3" y="4" width="18" height="14" rx="5"/><path d="M8 18v3l4-3M8 9h1m6 0h1"/></svg><span><b>TS Minion</b></span>
       </button>
     </div>
   );
