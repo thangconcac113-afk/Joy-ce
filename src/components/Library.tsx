@@ -50,7 +50,10 @@ export function Library() {
       <HashtagOptions platform={f.platform} account={f.account} id="library-hashtags" />
       <div className="library-toolbar">
         <label className="filter-field search-field"><span className="control-label">Search videos</span><input className="input" type="search" placeholder={t("Search video titles…")} value={q} onChange={e => setQ(e.target.value)} aria-label="Search videos" /></label>
-        <label className="filter-field"><span className="control-label">Channel</span><select className="select" aria-label="Channel" value={f.account ?? ""} onChange={e => setF({ ...f, account: e.target.value ? Number(e.target.value) : null })}><option value="">All channels</option>{accounts.filter(a => f.platform === "all" || a.platform === f.platform).map(a => <option key={a.id} value={a.id}>{a.title} ({a.platform === "youtube" ? "YouTube" : "TikTok"})</option>)}</select></label>
+        <label className="filter-field"><span className="control-label">Channel</span><select className="select" aria-label="Channel" value={f.account ?? ""} onChange={e => {
+          const selected = accounts.find(a => a.id === Number(e.target.value));
+          setF({ ...f, account: selected?.id ?? null, platform: selected?.platform ?? "all" });
+        }}><option value="">All channels</option>{(["youtube", "tiktok"] as const).map(platform => <optgroup key={platform} label={platform === "youtube" ? "YouTube" : "TikTok"}>{accounts.filter(a => a.platform === platform).map(a => <option key={a.id} value={a.id}>{a.title} ({platform === "youtube" ? "YouTube" : "TikTok"})</option>)}</optgroup>)}</select></label>
         <label className="filter-field"><span className="control-label">Campaign hashtag</span><input className="input" list="library-hashtags" aria-label="Search hashtag" placeholder="#EWC, #VCT or #TSW" maxLength={100} value={hashtag} onChange={e => changeHashtag(e.target.value)} /></label>
         <button className="btn" type="button" aria-expanded={more} aria-controls="library-more-filters" onClick={() => setMore(!more)}>More filters{[length, publishedDays, contentType, f.platform !== "all"].filter(Boolean).length > 0 && ` (${[length, publishedDays, contentType, f.platform !== "all"].filter(Boolean).length})`}</button>
       </div>
