@@ -2,13 +2,13 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { oauthStates } from "@/db/schema";
-import { jsonError, withUser } from "@/lib/api";
+import { jsonError, withUser, withManager } from "@/lib/api";
 import { analyticsConfig, buildAuthUrl } from "@/lib/ytAnalytics";
 
 export const dynamic = "force-dynamic";
 
 export function GET(req: Request) {
-  return withUser(async () => {
+  return withManager(async () => {
     const cfg = analyticsConfig(new URL(req.url).origin);
     if (!cfg) return jsonError("Google OAuth client is not configured on the server.", 503);
     if (!process.env.TOKEN_ENCRYPTION_KEY) return jsonError("TOKEN_ENCRYPTION_KEY is not configured on the server.", 503);
