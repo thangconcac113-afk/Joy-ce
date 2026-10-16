@@ -8,7 +8,7 @@ export function Kpi({ label, value, current, previous, period, hint, note, compa
   const dir = pct === null || Math.abs(pct) < 0.5 ? "flat" : pct > 0 ? "up" : "down";
   return (
     <div className="card kpi" title={hint}>
-      <div className="kpi-label">{label}</div>
+      <div className="kpi-label"><span>{label}</span>{hint && <details className="metric-help"><summary aria-label={`About ${label}`} title={t("Metric definition")}>i</summary><div>{hint}</div></details>}</div>
       <div className="kpi-row">
         <div className="kpi-value" title={fmtFull(value)}>
           {valueText ?? fmt(value)}
