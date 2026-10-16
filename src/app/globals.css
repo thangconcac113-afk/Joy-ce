@@ -499,3 +499,8 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   table.data.video-table .num { text-align:left; font-size:14px; padding-top:8px; }
   .mobile-cell-label { display:block; font-size:9px; font-weight:400; color:var(--ink-2); margin-bottom:4px; white-space:normal; }
 }
+
+@media(max-width:760px) {
+  .video-table .tmeta { white-space:normal; line-height:1.5; overflow-wrap:anywhere; }
+  .metric-help > div { position:fixed; left:16px; right:16px; top:auto; bottom:76px; width:auto; }
+}
