@@ -1,10 +1,11 @@
 "use client";
 
+import { LoadingState } from "./LoadingState";
 import { HashtagOptions } from "./HashtagOptions";
 import { CONTENT_TYPES } from "@/lib/insights";
 import { useEffect, useState } from "react";
 import type { VideoRow } from "@/lib/metrics";
-import { Filters, toQuery, type FilterState } from "./Filters";
+import { Filters, useAccountOptions, toQuery, type FilterState } from "./Filters";
 import { Img } from "./Img";
 import { useLive } from "./useLive";
 import { useFilterState } from "./useFilterState";
@@ -16,6 +17,9 @@ type Sort = "newest" | "views" | "trending";
 export function Library() {
   const { t, date } = useI18n();
   const [f, setF] = useFilterState("tsvt.library", { range: "24h", platform: "all", account: null });
+  const accounts = useAccountOptions();
+  const [view, setView] = useState<"list" | "grid">("list");
+  const [more, setMore] = useState(false);
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
@@ -43,38 +47,42 @@ export function Library() {
           <p>{t("Every tracked video with its latest numbers and views gained in the last 24 hours.")}</p>
         </div>
       </div>
-      <div className="filters">
-        <input className="input" type="search" placeholder={t("Search video titles…")} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search videos" />
-        <div className="seg" aria-label="Sort">
-          {(
-            [
-              ["newest", "Newest"],
-              ["trending", "Trending (24h)"],
-              ["views", "Most viewed"],
-            ] as [Sort, string][]
-          ).map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={sort === k} onClick={() => setSort(k)}>
-              {t(label)}
-            </button>
-          ))}
-        </div>
+      <HashtagOptions platform={f.platform} account={f.account} id="library-hashtags" />
+      <div className="library-toolbar">
+        <label className="filter-field search-field"><span className="control-label">Search videos</span><input className="input" type="search" placeholder={t("Search video titles…")} value={q} onChange={e => setQ(e.target.value)} aria-label="Search videos" /></label>
+        <label className="filter-field"><span className="control-label">Channel</span><select className="select" aria-label="Channel" value={f.account ?? ""} onChange={e => setF({ ...f, account: e.target.value ? Number(e.target.value) : null })}><option value="">All channels</option>{accounts.filter(a => f.platform === "all" || a.platform === f.platform).map(a => <option key={a.id} value={a.id}>{a.title} ({a.platform === "youtube" ? "YouTube" : "TikTok"})</option>)}</select></label>
+        <label className="filter-field"><span className="control-label">Campaign hashtag</span><input className="input" list="library-hashtags" aria-label="Search hashtag" placeholder="#EWC, #VCT or #TSW" maxLength={100} value={hashtag} onChange={e => changeHashtag(e.target.value)} /></label>
+        <button className="btn" type="button" aria-expanded={more} aria-controls="library-more-filters" onClick={() => setMore(!more)}>More filters{[length, publishedDays, contentType, f.platform !== "all"].filter(Boolean).length > 0 && ` (${[length, publishedDays, contentType, f.platform !== "all"].filter(Boolean).length})`}</button>
       </div>
-      <HashtagOptions platform={f.platform} account={f.account} id="library-hashtags"/>
-      <Filters value={f} onChange={setF} showRange={false} />
-      <div className="filters">
-        <label>Hashtag<input className="input" list="library-hashtags" aria-label="Search hashtag" placeholder="#EWC, #VCT or #TSW" maxLength={100} value={hashtag} onChange={e=>changeHashtag(e.target.value)} /></label>
-        <select className="select" aria-label="Video duration" value={length} onChange={e=>setLength(e.target.value)}><option value="">All durations</option><option value="short">Up to 60 seconds</option><option value="medium">61-180 seconds</option><option value="long">Over 3 minutes</option></select>
-        <select className="select" aria-label="Publication period" value={publishedDays} onChange={e=>setPublishedDays(e.target.value)}><option value="">All tracked dates</option><option value="30">Published in last 30 days</option><option value="90">Published in last 90 days</option><option value="365">Published in last 365 days</option></select>
-        <select className="select" aria-label="Content type" value={contentType} onChange={e=>setContentType(e.target.value)}><option value="">All content types</option>{CONTENT_TYPES.map(t=><option key={t}>{t}</option>)}</select>
+      {more && <div className="advanced-filters" id="library-more-filters">
+        <Filters value={f} onChange={setF} showRange={false} showChannel={false} />
+        <label className="filter-field"><span className="control-label">Video duration</span><select className="select" aria-label="Video duration" value={length} onChange={e => setLength(e.target.value)}><option value="">All durations</option><option value="short">Up to 60 seconds</option><option value="medium">61-180 seconds</option><option value="long">Over 3 minutes</option></select></label>
+        <label className="filter-field"><span className="control-label">Published in</span><select className="select" aria-label="Publication period" value={publishedDays} onChange={e => setPublishedDays(e.target.value)}><option value="">All tracked dates</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 365 days</option></select></label>
+        <label className="filter-field"><span className="control-label">Content type</span><select className="select" aria-label="Content type" value={contentType} onChange={e => setContentType(e.target.value)}><option value="">All content types</option>{CONTENT_TYPES.map(type => <option key={type}>{type}</option>)}</select></label>
+      </div>}
+      <div className="active-filters" aria-label="Active filters">
+        {q && <button className="filter-chip" onClick={() => setQ("")} aria-label="Remove search filter">Search: {q} ×</button>}
+        {hashtag && <button className="filter-chip" onClick={() => changeHashtag("")} aria-label="Remove hashtag filter">#{hashtag.replace(/^#/, "")} ×</button>}
+        {f.account && <button className="filter-chip" onClick={() => setF({ ...f, account: null })} aria-label="Remove channel filter">{accounts.find(a => a.id === f.account)?.title ?? "Channel"} ×</button>}
+        {f.platform !== "all" && <button className="filter-chip" onClick={() => setF({ ...f, platform: "all" })} aria-label="Remove platform filter">{f.platform === "youtube" ? "YouTube" : "TikTok"} ×</button>}
+        {length && <button className="filter-chip" onClick={() => setLength("")} aria-label="Remove duration filter">{length === "short" ? "Up to 60s" : length === "medium" ? "61–180s" : "Over 3 min"} ×</button>}
+        {publishedDays && <button className="filter-chip" onClick={() => setPublishedDays("")} aria-label="Remove publication filter">Last {publishedDays} days ×</button>}
+        {contentType && <button className="filter-chip" onClick={() => setContentType("")} aria-label="Remove content type filter">{contentType} ×</button>}
+        {(q || hashtag || f.account || f.platform !== "all" || length || publishedDays || contentType) && <button className="clear-filters" onClick={() => { setQ(""); changeHashtag(""); setF({ ...f, platform: "all", account: null }); setLength(""); setPublishedDays(""); setContentType(""); }}>Clear all</button>}
       </div>
+      <div className="library-viewbar"><div className="seg" aria-label="Sort">{([["newest", "Newest"], ["trending", "Trending (24h)"], ["views", "Most viewed"]] as [Sort, string][]).map(([key, label]) => <button key={key} type="button" aria-pressed={sort === key} onClick={() => setSort(key)}>{t(label)}</button>)}</div><div className="seg" aria-label="Video view"><button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>List</button><button type="button" aria-pressed={view === "grid"} onClick={() => setView("grid")}>Grid</button></div></div>
       {error && (
         <div className="banner" role="alert">
           {t("Couldn't load videos: {error}", { error })}
         </div>
       )}
-      <section className={`card ${loading && data ? "refetching" : ""}`} aria-label="Videos">
+      {!data && !error && <LoadingState kind="library" />}
+      {data && <section className={`card ${loading && data ? "refetching" : ""}`} aria-label="Videos">
         {data && data.items.length === 0 && <div className="empty">{t("No videos match these filters.")}</div>}
-        <div className="grid">
+        {view === "list" ? <div className="table-wrap"><table className="data video-table"><thead><tr><th>Video</th><th>Published</th><th className="num">Views gained · 24h</th><th className="num">Total views</th><th className="num"><abbr title="Lifetime interactions divided by lifetime views. YouTube: likes + comments. TikTok: likes + comments + shares.">Engagement / views</abbr></th></tr></thead><tbody>{data.items.map(v => <tr key={v.id}>
+          <td><a className="video-link" href={`/library/${v.id}`}><Img className="tthumb" src={v.thumbnailUrl} /><span className="tinfo"><span className="list-video-title" title={v.title}>{v.title}</span><span className="tmeta"><i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />{v.accountTitle} · {v.platform === "youtube" ? "YouTube" : "TikTok"}{duration(v.durationSec) && ` · ${duration(v.durationSec)}`}</span></span></a></td>
+          <td>{date(v.publishedAt)}</td><td className="num gained-value">{signed(v.viewsGained)}</td><td className="num">{fmt(v.views)}</td><td className="num">{v.views > 0 ? `${((v.likes + v.comments + (v.platform === "tiktok" ? v.shares : 0)) / v.views * 100).toFixed(1)}%` : "—"}</td>
+        </tr>)}</tbody></table></div> : <div className="grid">
           {data?.items.map((v) => (
             <a key={v.id} className="tile" href={`/library/${v.id}`}>
               <div className="tile-media">
@@ -88,7 +96,7 @@ export function Library() {
                 <i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />
                 {v.accountTitle}
               </div>
-              <div className="tile-title">{v.title}</div>
+              <div className="tile-title" title={v.title}>{v.title}</div>
               <div className="tile-stats">
                 <span>{date(v.publishedAt)}</span>
                 {(v.avdSec != null || v.ctr != null) && (
@@ -104,7 +112,7 @@ export function Library() {
               </div>
             </a>
           ))}
-        </div>
+        </div>}
         {data && data.total > 0 && (
           <div className="pager">
             <span>
@@ -120,7 +128,7 @@ export function Library() {
             </span>
           </div>
         )}
-      </section>
+      </section>}
     </>
   );
 }
