@@ -66,7 +66,7 @@ export function RadarAI() {
           const q = new URLSearchParams(window.location.search);
           let saved: {range?:string;platform?:string;account?:number|null} = {};
           try { saved = JSON.parse(localStorage.getItem(window.location.pathname.startsWith("/insights") ? "tsvt.insights" : window.location.pathname.startsWith("/library") ? "tsvt.library" : "tsvt.overview") || "{}"); } catch { /* default scope */ }
-          return {range:q.get("range") || saved.range || "30d",platform:q.get("platform") || saved.platform || "all",account:q.get("account") ? Number(q.get("account")) : saved.account ?? null};
+          return {hashtag:q.get("hashtag")||undefined,range:q.get("range") || saved.range || "30d",platform:q.get("platform") || saved.platform || "all",account:q.get("account") ? Number(q.get("account")) : saved.account ?? null};
         })() }),
       });
       const body = await response.json().catch(() => ({}));
