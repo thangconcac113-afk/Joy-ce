@@ -40,7 +40,8 @@ export function useFilterState(storeKey: string, initial: FilterState) {
       setF(next);
       try {
         window.localStorage.setItem(storeKey, JSON.stringify(next));
-        const q = new URLSearchParams({ range: next.range, platform: next.platform });
+        const q = new URLSearchParams(window.location.search);
+        q.set("range",next.range);q.set("platform",next.platform);q.delete("account");
         if (next.account) q.set("account", String(next.account));
         window.history.replaceState(null, "", `${window.location.pathname}?${q}`);
       } catch {
