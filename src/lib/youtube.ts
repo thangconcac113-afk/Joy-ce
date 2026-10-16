@@ -123,15 +123,32 @@ export async function fetchRecentVideos(
   apiKey: string,
   limit = 50,
   fetchFn: FetchFn = fetch,
+  since?: string,
 ): Promise<YtVideo[]> {
-  const list = await call<{ items?: { contentDetails?: { videoId?: string } }[] }>(
-    "playlistItems",
-    { part: "contentDetails", playlistId: uploadsPlaylistId, maxResults: String(Math.min(limit, 50)) },
-    apiKey,
-    fetchFn,
-  );
-  const ids = (list.items ?? []).map((i) => i.contentDetails?.videoId).filter((v): v is string => !!v);
-  if (ids.length === 0) return [];
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  const seen = new Set<string>();
+  do {
+    const list = await call<{ nextPageToken?: string; items?: { contentDetails?: { videoId?: string; videoPublishedAt?: string } }[] }>(
+      "playlistItems", { part: "contentDetails", playlistId: uploadsPlaylistId, maxResults: String(Math.min(limit - ids.length, 50)), ...(pageToken ? { pageToken } : {}) }, apiKey, fetchFn,
+    );
+    let crossedCutoff = false;
+    for (const item of list.items ?? []) {
+      const v = item.contentDetails;
+      if (since && v?.videoPublishedAt && v.videoPublishedAt < since) { crossedCutoff = true; continue; }
+      if (v?.videoId) ids.push(v.videoId);
+    }
+    if (crossedCutoff || !list.nextPageToken || seen.has(list.nextPageToken)) break;
+    pageToken = list.nextPageToken;
+    seen.add(pageToken);
+  } while (ids.length < limit);
+  return fetchVideoIds(ids.slice(0, limit), apiKey, fetchFn);
+}
+
+/** Refresh stored videos even after they leave the newest uploads page. */
+export async function fetchVideoIds(ids: string[], apiKey: string, fetchFn: FetchFn = fetch): Promise<YtVideo[]> {
+  const out: YtVideo[] = [];
+  for (let offset = 0; offset < ids.length; offset += 50) {
   const res = await call<{
     items?: {
       id: string;
@@ -139,8 +156,8 @@ export async function fetchRecentVideos(
       statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
       contentDetails?: { duration?: string };
     }[];
-  }>("videos", { part: "snippet,statistics,contentDetails", id: ids.join(",") }, apiKey, fetchFn);
-  return (res.items ?? []).map((v) => ({
+  }>("videos", { part: "snippet,statistics,contentDetails", id: ids.slice(offset, offset + 50).join(",") }, apiKey, fetchFn);
+  out.push(...(res.items ?? []).map((v) => ({
     id: v.id,
     title: v.snippet?.title ?? v.id,
     publishedAt: v.snippet?.publishedAt ?? null,
@@ -149,5 +166,7 @@ export async function fetchRecentVideos(
     views: num(v.statistics?.viewCount) ?? 0,
     likes: num(v.statistics?.likeCount),
     comments: num(v.statistics?.commentCount),
-  }));
+  })));
+  }
+  return out;
 }

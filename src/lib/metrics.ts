@@ -58,8 +58,9 @@ export interface Dashboard {
   generatedAt: string;
   filters: { range: RangeKey; platform: PlatformFilter; accountId: number | null };
   lastPoll: { finishedAt: string | null; accountsOk: number; accountsFailed: number } | null;
-  /** Earliest snapshot in scope: before this, growth can't be measured. */
+  /** Date when every selected channel had started tracking. */
   trackingSince: string | null;
+  comparisonReady: boolean;
   kpis: {
     followers: number;
     followersGained: number;
@@ -106,13 +107,13 @@ async function rows<T>(db: Db, q: SQL): Promise<T[]> {
 function videoGainsQuery(f: Filters, start: Date, end: Date): SQL {
   return sql`
     select v.id, v.account_id, a.title as account_title, a.platform, v.title, v.url, v.thumbnail_url,
-      v.published_at, v.duration_sec,
+      v.published_at, v.duration_sec, v.content_type,
       last.views, last.likes, last.comments, last.shares, va.avd_sec, va.ctr,
       greatest(last.views - coalesce(base.views,
-        case when v.published_at >= ${iso(start)}::timestamptz then 0 end, first.views, last.views), 0) as views_gained,
+        case when v.published_at >= ${iso(start)}::timestamptz and exists (select 1 from account_snapshots tracked where tracked.account_id = a.id and tracked.taken_at <= v.published_at) then 0 end, first.views, last.views), 0) as views_gained,
       greatest(
         (coalesce(last.likes,0) + coalesce(last.comments,0) + coalesce(last.shares,0)) -
-        coalesce(base.eng, case when v.published_at >= ${iso(start)}::timestamptz then 0 end, first.eng,
+        coalesce(base.eng, case when v.published_at >= ${iso(start)}::timestamptz and exists (select 1 from account_snapshots tracked where tracked.account_id = a.id and tracked.taken_at <= v.published_at) then 0 end, first.eng,
           coalesce(last.likes,0) + coalesce(last.comments,0) + coalesce(last.shares,0)), 0) as engagements_gained
     from videos v
     join accounts a on a.id = v.account_id
@@ -225,7 +226,7 @@ function seriesQuery(kind: "views" | "followers", f: Filters, start: Date, end: 
     d as (
       select platform, account_id, bucket,
         coalesce(value - lag(value) over (partition by entity order by bucket),
-          case when published_at >= bucket - ${sql.raw(`interval '1 ${unit}'`)} then value end) as gain
+          case when published_at >= bucket - ${sql.raw(`interval '1 ${unit}'`)} and exists (select 1 from account_snapshots tracked where tracked.account_id = per.account_id and tracked.taken_at <= published_at) then value end) as gain
       from per)
     select platform, account_id, bucket, sum(gain) as gain from d
     where bucket >= date_trunc(${u}, ${iso(start)}::timestamptz) and gain is not null
@@ -332,7 +333,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
     ),
     rows<{ t: string | Date | null }>(
       db,
-      sql`select min(s.taken_at) as t from account_snapshots s join accounts a on a.id = s.account_id where ${scope(f, { account: "a" })}`,
+      sql`select case when count(first_seen) = count(*) then max(first_seen) end as t from (select a.id, min(s.taken_at) as first_seen from accounts a left join account_snapshots s on s.account_id = a.id where ${scope(f, { account: "a" })} group by a.id) coverage`,
     ),
     rows<{ views: number | null; impressions: number | null; ctr: number | null; avd_sec: number | null }>(
       db,
@@ -374,6 +375,7 @@ export async function getDashboard(db: Db, f: Filters): Promise<Dashboard> {
       ? { finishedAt: toIso(lastPoll[0].finished_at), accountsOk: lastPoll[0].accounts_ok, accountsFailed: lastPoll[0].accounts_failed }
       : null,
     trackingSince: toIso(since[0]?.t ?? null),
+    comparisonReady: !!since[0]?.t && new Date(since[0].t) <= prevStart && fol.every((r) => r.followers != null),
     analytics: analyticsSummary(f.range, anRows, accts.filter((a) => a.platform === "youtube").length),
     kpis: {
       followers: sum(accounts.map((a) => a.followers ?? 0)),
@@ -400,6 +402,9 @@ export interface LibraryQuery {
   accountId?: number | null;
   q?: string;
   sort: "newest" | "views" | "trending";
+  duration?: "short" | "medium" | "long";
+  publishedDays?: number;
+  contentType?: string;
   page: number;
   pageSize?: number;
   now?: Date;
@@ -412,12 +417,19 @@ export async function getLibrary(db: Db, query: LibraryQuery): Promise<{ total: 
   const pageSize = Math.min(query.pageSize ?? 24, 60);
   const offset = Math.max(0, (query.page - 1) * pageSize);
   const search = query.q?.trim() ? sql`and g.title ilike ${"%" + query.q.trim().replace(/[%_\\]/g, "\\$&") + "%"}` : sql``;
+  const extra: SQL[] = [];
+  if (query.duration === "short") extra.push(sql`g.duration_sec <= 60`);
+  if (query.duration === "medium") extra.push(sql`g.duration_sec > 60 and g.duration_sec <= 180`);
+  if (query.duration === "long") extra.push(sql`g.duration_sec > 180`);
+  if (query.publishedDays) extra.push(sql`g.published_at >= ${iso(new Date(now.getTime() - query.publishedDays * DAY))}::timestamptz`);
+  if (query.contentType) extra.push(sql`g.content_type = ${query.contentType}`);
+  const where = extra.length ? sql`and ${sql.join(extra, sql` and `)}` : sql``;
   const order =
     query.sort === "views" ? sql`g.views desc` : query.sort === "trending" ? sql`g.views_gained desc` : sql`g.published_at desc nulls last`;
   const base = videoGainsQuery(f, new Date(now.getTime() - DAY), now);
   const [items, total] = await Promise.all([
-    rows<RawVideo>(db, sql`select * from (${base}) g where true ${search} order by ${order}, g.id desc limit ${pageSize} offset ${offset}`),
-    rows<{ n: string }>(db, sql`select count(*) as n from (${base}) g where true ${search}`),
+    rows<RawVideo>(db, sql`select * from (${base}) g where true ${search} ${where} order by ${order}, g.id desc limit ${pageSize} offset ${offset}`),
+    rows<{ n: string }>(db, sql`select count(*) as n from (${base}) g where true ${search} ${where}`),
   ]);
   return { total: num(total[0]?.n), items: items.map(toVideo) };
 }
@@ -431,6 +443,7 @@ export interface MonthRange {
   start: Date;
   end: Date;
   prevStart: Date;
+  prevEnd: Date;
   /** True once the month is over, so its numbers no longer change. */
   complete: boolean;
 }
@@ -445,7 +458,10 @@ export function monthRange(month: string, now = new Date()): MonthRange | null {
   const nextStart = new Date(Date.UTC(y, mo, 1) - VN_OFFSET);
   const prevStart = new Date(Date.UTC(y, mo - 2, 1) - VN_OFFSET);
   const complete = now >= nextStart;
-  return { month, start, end: complete ? nextStart : now, prevStart, complete };
+  if (now < start) return null;
+  const end = complete ? nextStart : now;
+  const prevEnd = complete ? start : new Date(Math.min(start.getTime(), prevStart.getTime() + end.getTime() - start.getTime()));
+  return { month, start, end, prevStart, prevEnd, complete };
 }
 
 /** The month the report page opens on: this month. */
@@ -458,6 +474,8 @@ export interface MonthlyReport {
   month: string;
   generatedAt: string;
   complete: boolean;
+  comparisonReady: boolean;
+  period: { start: string; end: string; previousStart: string; previousEnd: string };
   trackingSince: string | null;
   kpis: {
     viewsGained: number;
@@ -483,17 +501,17 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
   const f: Filters = { range: "30d", platform: "all", accountId: null };
   const [cur, prev, fol, folPrev, accts, published, publishedPrev, since, an] = await Promise.all([
     rows<RawVideo>(db, videoGainsQuery(f, r.start, r.end)),
-    rows<RawVideo>(db, videoGainsQuery(f, r.prevStart, r.start)),
+    rows<RawVideo>(db, videoGainsQuery(f, r.prevStart, r.prevEnd)),
     rows<{ id: number; followers: string | null; gained: string | null }>(db, followerQuery(f, r.start, r.end)),
-    rows<{ id: number; gained: string | null }>(db, followerQuery(f, r.prevStart, r.start)),
+    rows<{ id: number; gained: string | null }>(db, followerQuery(f, r.prevStart, r.prevEnd)),
     rows<{ id: number; platform: "youtube" | "tiktok"; title: string; handle: string | null; avatar_url: string | null; last_polled_at: string | Date | null; last_error: string | null }>(
       db,
       sql`select a.id, a.platform, a.title, a.handle, a.avatar_url, a.last_polled_at, a.last_error from accounts a order by a.platform, a.title`,
     ),
     rows<{ account_id: number; n: string }>(db, sql`select v.account_id, count(*) as n from videos v where v.published_at >= ${iso(r.start)}::timestamptz and v.published_at < ${iso(r.end)}::timestamptz group by 1`),
-    rows<{ n: string }>(db, sql`select count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.start)}::timestamptz`),
-    rows<{ t: string | Date | null }>(db, sql`select min(taken_at) as t from account_snapshots`),
-    rows<{ account_id: number; views: number | null; avd_sec: number | null }>(db, sql`select account_id, views, avd_sec from channel_analytics where range_key = '30d'`),
+    rows<{ n: string }>(db, sql`select count(*) as n from videos v where v.published_at >= ${iso(r.prevStart)}::timestamptz and v.published_at < ${iso(r.prevEnd)}::timestamptz`),
+    rows<{ t: string | Date | null }>(db, sql`select case when count(t) = count(*) then max(t) end as t from (select a.id, min(s.taken_at) as t from accounts a left join account_snapshots s on s.account_id = a.id group by a.id) coverage`),
+    rows<{ account_id: number; views: number | null; avd_sec: number | null }>(db, sql`select account_id, views, avd_sec from channel_analytics where range_key = ${"month:" + month}`),
   ]);
 
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
@@ -528,6 +546,8 @@ export async function getMonthlyReport(db: Db, month: string, now = new Date()):
     month: r.month,
     generatedAt: now.toISOString(),
     complete: r.complete,
+    comparisonReady: !!since[0]?.t && new Date(since[0].t) <= r.prevStart && fol.every((x) => x.followers != null),
+    period: { start: iso(r.start), end: iso(r.end), previousStart: iso(r.prevStart), previousEnd: iso(r.prevEnd) },
     trackingSince: toIso(since[0]?.t ?? null),
     kpis: {
       viewsGained: sum(videos.map((v) => v.viewsGained)),
