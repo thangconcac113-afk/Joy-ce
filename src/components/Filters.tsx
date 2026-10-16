@@ -36,6 +36,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
   return (
     <div className="filters" role="group" aria-label="Filters">
       {showRange && (
+        <label className="filter-field"><span className="control-label">{t("Time period")}</span>
         <select className="select" aria-label="Date range" value={value.range} onChange={(e) => onChange({ ...value, range: e.target.value as RangeKey })}>
           {(Object.keys(RANGE_LABEL) as RangeKey[]).map((r) => (
             <option key={r} value={r}>
@@ -43,7 +44,9 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
             </option>
           ))}
         </select>
+        </label>
       )}
+      <div className="filter-field"><span className="control-label">{t("Platform")}</span>
       <div className="seg" aria-label="Platform">
         {(["all", "youtube", "tiktok"] as PlatformFilter[]).map((p) => (
           <button key={p} type="button" aria-pressed={value.platform === p} onClick={() => onChange({ ...value, platform: p, account: null })}>
@@ -52,6 +55,8 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
           </button>
         ))}
       </div>
+      </div>
+      <label className="filter-field"><span className="control-label">{t("Channel")}</span>
       <select
         className="select"
         aria-label="Channel"
@@ -65,6 +70,7 @@ export function Filters({ value, onChange, showRange = true }: { value: FilterSt
           </option>
         ))}
       </select>
+      </label>
     </div>
   );
 }
