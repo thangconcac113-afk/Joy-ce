@@ -143,7 +143,7 @@ export function Overview() {
         </div>
       </div>
 
-      <div className="filters" role="group" aria-label="Filters">
+      <div className="filters dashboard-filters" role="group" aria-label="Filters">
         <div className="filter-field"><span className="control-label">{t("Time period")}</span><div className="seg" aria-label="Date range">
           {(Object.keys(RANGE_SHORT) as RangeKey[]).map((r) => (
             <button key={r} type="button" aria-pressed={f.range === r} onClick={() => setF({ ...f, range: r })}>
