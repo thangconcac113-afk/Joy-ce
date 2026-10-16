@@ -2,6 +2,8 @@ import pdfMake from "pdfmake/build/pdfmake";
 import fonts from "pdfmake/build/vfs_fonts";
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
 import type { MonthlyReport } from "./metrics";
+import { dailyChartSvg } from "./monthlyGrowth";
+import { loadPdfThumbnails } from "./pdfThumbnails";
 
 pdfMake.addVirtualFileSystem(fonts);
 const number = (n: number | null) => n == null ? "Unavailable" : n.toLocaleString("en-GB", { maximumFractionDigits: 1 });
@@ -10,13 +12,19 @@ const text = (value: string) => value.replace(/[\p{Extended_Pictographic}\p{Regi
 const date = (s: string) => new Date(s).toLocaleString("en-GB", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "medium", timeStyle: "short" });
 const table = (headers: string[], rows: TableCell[][], widths: (number | "*")[]): Content => ({
   table: { headerRows: 1, widths, body: [headers.map(h => ({ text: h, bold: true, color: "#ffffff", fillColor: "#182d41" })), ...rows] },
-  layout: "lightHorizontalLines", margin: [0, 8, 0, 14], fontSize: 9,
+  layout: "lightHorizontalLines", margin: [0, 6, 0, 9], fontSize: 8.5,
 });
-const h2 = (value: string): Content => ({ text: value, fontSize: 15, bold: true, margin: [0, 17, 0, 7] });
+const h2 = (value: string): Content => ({ text: value, fontSize: 13, bold: true, margin: [0, 10, 0, 5] });
 
-export function monthlyPdfDefinition(r: MonthlyReport): TDocumentDefinitions {
+export function monthlyPdfDefinition(r: MonthlyReport, images: Record<string, string> = {}): TDocumentDefinitions {
   const month = new Date(`${r.month}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
   const comparison = r.complete ? "Previous calendar month" : "Same elapsed time last month";
+  const chart = (accountId?: number): Content[] => {
+    const svg = dailyChartSvg((r.dailyGrowth ?? []).filter(p => accountId == null || p.accountId === accountId), r.period.start, r.period.end,
+      r.accounts.find(a => a.id === accountId)?.platform === "tiktok" ? "#e77135" : "#2671b8");
+    return [h2("Daily measured views gained"), svg ? { svg, width: 515 } : { text: "No observed daily history in this period.", color: "#536273" },
+      { text: "Vietnam time. Grey days have no observations, not zero views. Latest day is partial. Counter corrections and sync gaps can differ from monthly net growth.", fontSize: 8, color: "#536273", margin: [0, 0, 0, 8] }];
+  };
   const change = (current: number | null, previous: number | null) => {
     if (!r.comparisonReady || current == null || previous == null) return "Insufficient history";
     if (previous <= 0) return "No positive baseline";
@@ -43,6 +51,7 @@ export function monthlyPdfDefinition(r: MonthlyReport): TDocumentDefinitions {
       ["Videos published", r.kpis.videosPublished, r.kpis.videosPublishedPrev],
     ]),
     { text: `Total followers at period end: ${number(r.kpis.followers)}. ${r.accounts.length} tracked channels.`, bold: true },
+    ...chart(),
     h2("Channel contribution"),
     table(["Channel / platform", "Views gained", "Engagements", "Net followers", "Videos"], r.accounts.map(a => [text(`${a.title}\n${a.platform === "youtube" ? "YouTube" : "TikTok"}`), number(a.viewsGained), number(a.engagementsGained), number(a.followersGained), number(a.videosPublished)]), ["*", 75, 75, 72, 42]),
   ];
@@ -64,15 +73,17 @@ export function monthlyPdfDefinition(r: MonthlyReport): TDocumentDefinitions {
         ["Average view duration, selected calendar month", a.platform === "youtube" ? (a.avdSec == null ? "Unavailable" : `${number(a.avdSec)} seconds`) : "YouTube only"],
       ], ["*", 200]),
       { text: !a.lastPolledAt ? "Current sync health: never synced." : a.lastError ? "Current sync health: a sync error needs attention. See Channels." : `Last successful sync: ${date(a.lastPolledAt)}.`, fontSize: 9, color: "#536273" },
+      ...chart(a.id),
       h2("Top videos by measured views gained"),
     );
     if (a.topVideos.length) {
-      content.push(table(["Video / published", "Views gained", "Period-end total", "Eng. gained"], a.topVideos.map(v => [
-        { text: `${text(v.title)}\n${v.publishedAt ? date(v.publishedAt) : "Publication date unavailable"}`, ...(v.url?.startsWith("https://") ? { link: v.url } : {}) },
+      content.push(table(["Preview", "Video / published", "Views gained", "Period-end total", "Eng. gained"], a.topVideos.map(v => [
+        images[`video${v.id}`] ? { image: `video${v.id}`, width: 66, height: 37 } : { text: "Preview unavailable", fontSize: 8, color: "#536273" },
+        { text: `${text(v.title).length > 130 ? `${text(v.title).slice(0,127)}...` : text(v.title)}\n${v.publishedAt ? date(v.publishedAt) : "Publication date unavailable"}`, ...(v.url?.startsWith("https://") ? { link: v.url } : {}) },
         number(v.viewsGained), number(v.views), number(v.engagementsGained),
-      ]), ["*", 75, 80, 73]));
+      ]), [66, "*", 61, 65, 53]));
     } else content.push({ text: "No positive video growth was observed during this period.", color: "#536273" });
-    content.push({ text: "Top videos may have been published before this month. Period-end totals are lifetime counters, not monthly views. Engagements are observed likes + comments + available shares. No per-video first-week history is inferred.", fontSize: 9, color: "#536273", margin: [0, 8, 0, 0] });
+    content.push({ text: "Top videos may predate this month. Period-end totals are lifetime counters. Long captions are shortened; click the title for the original. No first-week history is inferred.", fontSize: 8, color: "#536273", margin: [0, 6, 0, 0] });
   }
   content.push(
     { text: "Sources and measurement notes", fontSize: 23, bold: true, pageBreak: "before", margin: [0, 8, 0, 14] },
@@ -85,17 +96,20 @@ export function monthlyPdfDefinition(r: MonthlyReport): TDocumentDefinitions {
       "Average view duration uses the selected month's owner-only YouTube Analytics cache. TikTok watch duration and YouTube impression CTR are unavailable in this integration. Unavailable is not zero.",
       "Last sync reflects current connection health, not historical month-end health. Synchronization is periodic and source APIs may report with delay.",
       "Decorative emoji may be omitted from PDF titles for font compatibility. Original video links preserve access to full source content.",
+      "Charts show observed positive counter increments grouped by Vietnam calendar day. Grey days have no usable observations. Sync gaps attribute changes to the day observed; source corrections can make daily positive increments differ from monthly net growth.",
+      "Video thumbnails are embedded from trusted source CDNs for offline viewing. Expired or unavailable previews do not prevent report export.",
     ], lineHeight: 1.4 },
   );
   return {
-    pageSize: "A4", pageMargins: [38, 48, 38, 48],
+    pageSize: "A4", pageMargins: [38, 38, 38, 38],
     info: { title: `TS Video Tracker - ${month}`, author: "Team Secret", subject: "Monthly channel performance" },
-    defaultStyle: { font: "Roboto", fontSize: 10, color: "#182d41", lineHeight: 1.2 },
+    defaultStyle: { font: "Roboto", fontSize: 9.5, color: "#182d41", lineHeight: 1.1 },
     footer: (page, pages) => ({ text: `TS Video Tracker | ${r.month} | ${page} / ${pages}`, alignment: "center", fontSize: 8, color: "#536273", margin: [0, 18, 0, 0] }),
-    content,
+    content, images,
   };
 }
 
 export async function createMonthlyPdf(report: MonthlyReport): Promise<Buffer> {
-  return pdfMake.createPdf(monthlyPdfDefinition(report)).getBuffer();
+  const images = await loadPdfThumbnails(report);
+  return pdfMake.createPdf(monthlyPdfDefinition(report, images)).getBuffer();
 }
