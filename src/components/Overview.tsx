@@ -1,4 +1,5 @@
 "use client";
+import { LoadingState } from "./LoadingState";
 import { useCanManage } from "./Access";
 
 import { useEffect, useState } from "react";
@@ -125,6 +126,8 @@ export function Overview() {
   const trending = data?.topVideos.filter((v) => v.viewsGained > 0).slice(0, 6) ?? [];
   const maxTrend = Math.max(1, ...trending.map((v) => v.viewsGained));
 
+  const attention = data?.accounts.filter(a => a.lastError || !a.lastPolledAt || Date.now() - new Date(a.lastPolledAt).getTime() > 1800000).length ?? 0;
+  const partial = !!data?.trackingSince && new Date(data.trackingSince).getTime() > new Date(data.generatedAt).getTime() - RANGE_MS[f.range];
   return (
     <>
       <div className="page-head">
@@ -180,21 +183,17 @@ export function Overview() {
         </div>
       )}
 
-      {data?.trackingSince && new Date(data.trackingSince).getTime() > new Date(data.generatedAt).getTime() - RANGE_MS[f.range] && (
-        <div className="banner info">
-          <span>
-            {t("Full channel coverage started {time}. Earlier growth is unavailable. Imported lifetime views are excluded from measured growth.", {
-              time: new Date(data.trackingSince).toLocaleString(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
-            })}
-          </span>
+      {data && (partial || !data.comparisonReady || attention > 0) && <details className="data-status">
+        <summary><span className="status-indicator" aria-hidden /><span>{partial || !data.comparisonReady ? "Partial data" : "Connection health"}{attention > 0 && ` · ${attention} ${attention === 1 ? "account needs" : "accounts need"} attention`}</span><span className="status-action">View details</span></summary>
+        <div className="data-status-body">
+          {partial && <p>{t("Full channel coverage started {time}. Earlier growth is unavailable. Imported lifetime views are excluded from measured growth.", { time: new Date(data.trackingSince!).toLocaleString(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) })}</p>}
+          {!data.comparisonReady && <p>Period comparisons appear once all selected channels have enough tracking history.</p>}
+          {attention > 0 && <p><a href="/channels">Review account connections and sync errors →</a></p>}
         </div>
-      )}
-
-      {data && !data.comparisonReady && <p className="muted">Period comparisons appear once all selected channels have enough tracking history.</p>}
-      {data?.accounts.some((a) => a.lastError || !a.lastPolledAt || Date.now() - new Date(a.lastPolledAt).getTime() > 1800000) && <div className="banner" role="alert">Some channels need attention. <a href="/channels">Check sync status</a></div>}
+      </details>}
       {data && (
         <div className={loading ? "refetching" : undefined}>
-          <div className="kpis">
+          <div className="kpis dashboard-kpis">
             <Kpi
               noDelta={!data.comparisonReady}
               label={t("Total followers")}
@@ -209,62 +208,8 @@ export function Overview() {
             />
             <Kpi noDelta={!data.comparisonReady} label={t("Views gained")} value={data.kpis.viewsGained} current={data.kpis.viewsGained} previous={data.kpis.viewsGainedPrev} period={period} compareLabel={t("vs prev.")} trend={total(data.viewsSeries)} hint={t("New views on tracked videos during the period.")} />
             <Kpi noDelta={!data.comparisonReady} label={t("Engagements")} value={data.kpis.engagements} current={data.kpis.engagements} previous={data.kpis.engagementsPrev} period={period} compareLabel={t("vs prev.")} hint={t("New likes + comments + shares on tracked videos.")} />
-            {data.analytics.total > 0 && <Kpi
-              label={t("Avg view duration")}
-              value={data.analytics.avdSec ?? 0}
-              valueText={data.analytics.avdSec == null ? "—" : (duration(Math.round(data.analytics.avdSec)) ?? "—")}
-              noDelta
-              note={analyticsNote(data.analytics, f.platform === "tiktok")}
-              current={0}
-              previous={0}
-              period={period}
-              hint={t("Average time watched per view (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
-            />}
-            {data.analytics.total > 0 && <Kpi
-              label={t("Impressions CTR")}
-              value={data.analytics.ctr ?? 0}
-              valueText={data.analytics.ctr == null ? "—" : `${data.analytics.ctr.toFixed(1)}%`}
-              noDelta
-              note={data.analytics.impressions == null ? t("Unavailable from the current YouTube Analytics connection") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
-              current={0}
-              previous={0}
-              period={period}
-              hint={t("How often people click a thumbnail after seeing it (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
-            />}
             <Kpi noDelta={!data.comparisonReady} label={t("Videos published")} value={data.kpis.videosPublished} current={data.kpis.videosPublished} previous={data.kpis.videosPublishedPrev} period={period} compareLabel={t("vs prev.")} />
           </div>
-
-          <section className="card trending section" aria-label={t("New uploads (last 48h)")}>
-            <div className="card-head">
-              <div>
-                <h2 className="card-title">{t("New uploads (last 48h)")}</h2>
-              </div>
-              <a className="link" href="/library">
-                {t("All videos →")}
-              </a>
-            </div>
-            {latest && latest.items.length === 0 && <div className="empty">{t("No new uploads in the last 48 hours.")}</div>}
-            <ol className="trend-list">
-              {(latest?.items ?? []).slice(0, 6).map((v) => (
-                <li key={v.id}>
-                  <a href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
-                    <Img className="tthumb" src={v.thumbnailUrl} />
-                    <span className="tinfo">
-                      <span className="ttitle">{v.title}</span>
-                      <span className="tmeta">
-                        <i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />
-                        {v.accountTitle} · {t("{h}h ago", { h: Math.round(v.hoursOld) })}
-                      </span>
-                    </span>
-                    <span className="tgain">
-                      <b>{fmt(v.views)}</b>
-                      <small>{fmt(Math.round(v.viewsPerHour))}/h</small>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </section>
 
           <div className="dash-grid">
             <TrendChart
@@ -273,7 +218,7 @@ export function Overview() {
               data={metric === "views" ? data.viewsSeries : data.followersSeries}
               keys={[...keys]}
               bucket={data.bucket}
-              height={262}
+              height={250}
               headerExtra={
                 <div className="seg" aria-label="Chart metric">
                   <button type="button" aria-pressed={metric === "views"} onClick={() => setMetric("views")}>
@@ -303,7 +248,7 @@ export function Overview() {
                       <span className="rank">{i + 1}</span>
                       <Img className="tthumb" src={v.thumbnailUrl} />
                       <span className="tinfo">
-                        <span className="ttitle">{v.title}</span>
+                        <span className="ttitle" title={v.title}>{v.title}</span>
                         <span className="tmeta">
                           <i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />
                           {v.accountTitle} · {shortDate(v.publishedAt)}
@@ -320,6 +265,61 @@ export function Overview() {
               </ol>
             </section>
           </div>
+
+          {data.analytics.total > 0 && <details className="analytics-extra"><summary>YouTube watch metrics <span className="muted">Owner Analytics · view duration & CTR</span></summary><div className="kpis secondary-kpis">            {data.analytics.total > 0 && <Kpi
+              label={t("Avg view duration")}
+              value={data.analytics.avdSec ?? 0}
+              valueText={data.analytics.avdSec == null ? "—" : (duration(Math.round(data.analytics.avdSec)) ?? "—")}
+              noDelta
+              note={analyticsNote(data.analytics, f.platform === "tiktok")}
+              current={0}
+              previous={0}
+              period={period}
+              hint={t("Average time watched per view (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
+            />}
+            {data.analytics.total > 0 && <Kpi
+              label={t("Impressions CTR")}
+              value={data.analytics.ctr ?? 0}
+              valueText={data.analytics.ctr == null ? "—" : `${data.analytics.ctr.toFixed(1)}%`}
+              noDelta
+              note={data.analytics.impressions == null ? t("Unavailable from the current YouTube Analytics connection") : t("{n} impressions", { n: fmt(data.analytics.impressions) })}
+              current={0}
+              previous={0}
+              period={period}
+              hint={t("How often people click a thumbnail after seeing it (YouTube Analytics, owner-only). Uses the last {days} days.", { days: data.analytics.rangeKey.slice(0, -1) })}
+            />}
+</div></details>}
+          <section className="card trending section" aria-label={t("New uploads (last 48h)")}>
+            <div className="card-head">
+              <div>
+                <h2 className="card-title">{t("New uploads (last 48h)")}</h2>
+              </div>
+              <a className="link" href="/library">
+                {t("All videos →")}
+              </a>
+            </div>
+            {latest && latest.items.length === 0 && <div className="empty">{t("No new uploads in the last 48 hours.")}</div>}
+            <ol className="trend-list">
+              {(latest?.items ?? []).slice(0, 6).map((v) => (
+                <li key={v.id}>
+                  <a href={v.url ?? "#"} target="_blank" rel="noreferrer noopener">
+                    <Img className="tthumb" src={v.thumbnailUrl} />
+                    <span className="tinfo">
+                      <span className="ttitle" title={v.title}>{v.title}</span>
+                      <span className="tmeta">
+                        <i className={`dot ${v.platform === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />
+                        {v.accountTitle} · {t("{h}h ago", { h: Math.round(v.hoursOld) })}
+                      </span>
+                    </span>
+                    <span className="tgain">
+                      <b>{fmt(v.views)}</b>
+                      <small>{fmt(Math.round(v.viewsPerHour))}/h</small>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           <section className="section" aria-label="Channels">
             <div className="section-bar">
@@ -387,7 +387,7 @@ export function Overview() {
           </section>
         </div>
       )}
-      {!data && !error && <div className="empty">{t("Loading…")}</div>}
+      {!data && !error && <LoadingState />}
     </>
   );
 }
