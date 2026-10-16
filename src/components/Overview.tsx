@@ -141,14 +141,14 @@ export function Overview() {
       </div>
 
       <div className="filters" role="group" aria-label="Filters">
-        <div className="seg" aria-label="Date range">
+        <div className="filter-field"><span className="control-label">{t("Time period")}</span><div className="seg" aria-label="Date range">
           {(Object.keys(RANGE_SHORT) as RangeKey[]).map((r) => (
             <button key={r} type="button" aria-pressed={f.range === r} onClick={() => setF({ ...f, range: r })}>
               {t(RANGE_SHORT[r])}
             </button>
           ))}
         </div>
-        <div className="seg" aria-label="Platform">
+        </div><div className="filter-field"><span className="control-label">{t("Platform")}</span><div className="seg" aria-label="Platform">
           {(["all", "youtube", "tiktok"] as const).map((p) => (
             <button key={p} type="button" aria-pressed={f.platform === p && !focused} onClick={() => setF({ ...f, platform: p, account: null })}>
               {p !== "all" && <span className={`dot ${p === "youtube" ? "dot-yt" : "dot-tt"}`} aria-hidden />}
@@ -156,14 +156,14 @@ export function Overview() {
             </button>
           ))}
         </div>
-        <select className="select" aria-label={t("Channel")} value={f.account ?? ""} onChange={(e) => setF({ ...f, account: e.target.value ? Number(e.target.value) : null })}>
+        </div><label className="filter-field"><span className="control-label">{t("Channel")}</span><select className="select" aria-label={t("Channel")} value={f.account ?? ""} onChange={(e) => setF({ ...f, account: e.target.value ? Number(e.target.value) : null })}>
           <option value="">{t("All channels")}</option>
           {(all?.accounts ?? []).map((a) => (
             <option key={a.id} value={a.id}>
               {a.title}
             </option>
           ))}
-        </select>
+        </select></label>
       </div>
 
       {error && (
