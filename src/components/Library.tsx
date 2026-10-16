@@ -1,5 +1,6 @@
 "use client";
 
+import { HashtagOptions } from "./HashtagOptions";
 import { CONTENT_TYPES } from "@/lib/insights";
 import { useEffect, useState } from "react";
 import type { VideoRow } from "@/lib/metrics";
@@ -19,6 +20,9 @@ export function Library() {
   const [debounced, setDebounced] = useState("");
   const [sort, setSort] = useState<Sort>("newest");
   const [page, setPage] = useState(1);
+  const [hashtag,setHashtag] = useState("");
+  useEffect(()=>{setHashtag(new URLSearchParams(window.location.search).get("hashtag")||"");},[]);
+  const changeHashtag=(value:string)=>{setHashtag(value);const q=new URLSearchParams(window.location.search);if(value)q.set("hashtag",value);else q.delete("hashtag");window.history.replaceState(null,"",`${window.location.pathname}?${q}`);};
   const [length,setLength] = useState("");
   const [publishedDays,setPublishedDays] = useState("");
   const [contentType,setContentType] = useState("");
@@ -26,9 +30,9 @@ export function Library() {
     const id = window.setTimeout(() => setDebounced(q), 300);
     return () => window.clearTimeout(id);
   }, [q]);
-  useEffect(() => setPage(1), [f, debounced, sort, length, publishedDays, contentType]);
+  useEffect(() => setPage(1), [f, debounced, sort, length, publishedDays, contentType, hashtag]);
 
-  const { data, error, loading } = useLive<{ total: number; items: VideoRow[] }>(`/api/videos?${toQuery(f, { q: debounced, sort, page, duration:length, days:publishedDays, type:contentType })}`, 120_000);
+  const { data, error, loading } = useLive<{ total: number; items: VideoRow[] }>(`/api/videos?${toQuery(f, { q: debounced, sort, page, duration:length, days:publishedDays, type:contentType, hashtag })}`, 120_000);
   const pages = data ? Math.max(1, Math.ceil(data.total / 24)) : 1;
 
   return (
@@ -55,8 +59,10 @@ export function Library() {
           ))}
         </div>
       </div>
+      <HashtagOptions platform={f.platform} account={f.account} id="library-hashtags"/>
       <Filters value={f} onChange={setF} showRange={false} />
       <div className="filters">
+        <label>Hashtag<input className="input" list="library-hashtags" aria-label="Search hashtag" placeholder="#EWC, #VCT or #TSW" maxLength={100} value={hashtag} onChange={e=>changeHashtag(e.target.value)} /></label>
         <select className="select" aria-label="Video duration" value={length} onChange={e=>setLength(e.target.value)}><option value="">All durations</option><option value="short">Up to 60 seconds</option><option value="medium">61-180 seconds</option><option value="long">Over 3 minutes</option></select>
         <select className="select" aria-label="Publication period" value={publishedDays} onChange={e=>setPublishedDays(e.target.value)}><option value="">All tracked dates</option><option value="30">Published in last 30 days</option><option value="90">Published in last 90 days</option><option value="365">Published in last 365 days</option></select>
         <select className="select" aria-label="Content type" value={contentType} onChange={e=>setContentType(e.target.value)}><option value="">All content types</option>{CONTENT_TYPES.map(t=><option key={t}>{t}</option>)}</select>
