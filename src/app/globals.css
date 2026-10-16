@@ -343,3 +343,13 @@ table.data tbody tr:hover { background: var(--surface-2); }
 .target-form { display:flex; gap:16px; flex-wrap:wrap; padding:20px; align-items:end; margin-bottom:24px; }
 .target-form label { display:grid; gap:6px; }
 @media(max-width:760px){.brief-takeaways,.brief-targets{grid-template-columns:1fr}.target-form label{width:100%}.brief-strip{gap:8px}}
+
+/* Brief rows have no rank column: keep titles beside, never over thumbnails. */
+.brief-winners .trend-list li a { grid-template-columns:76px minmax(0,1fr) auto; gap:14px; padding:12px 6px; }
+.brief-video-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; line-height:1.5; }
+.brief-winners .sample-note { margin-top:0; overflow-wrap:anywhere; }
+@media(max-width:480px){
+  .brief-winners .trend-list li a { grid-template-columns:64px minmax(0,1fr); gap:6px 12px; }
+  .brief-winners .tthumb { width:64px; grid-row:span 2; }
+  .brief-winners .tgain { grid-column:2; align-items:flex-start; }
+}
