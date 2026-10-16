@@ -72,6 +72,8 @@ export const videos = pgTable(
     thumbnailUrl: text("thumbnail_url"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     durationSec: integer("duration_sec"),
+    description: text("description"),
+    hashtags: text("hashtags").array().notNull().default([]),
     contentType: text("content_type"),
     game: text("game"),
     campaign: text("campaign"),
