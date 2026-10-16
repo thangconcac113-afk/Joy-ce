@@ -1,4 +1,5 @@
 "use client";
+import { LoadingState } from "./LoadingState";
 import { useEffect,useState } from "react";
 import { useLive } from "./useLive";
 import { useCanManage } from "./Access";
@@ -32,5 +33,5 @@ export function Brief(){
  <section className="card table-wrap"><table className="data"><thead><tr><th>Channel</th><th className="num">Followers</th><th className="num">Net new</th><th className="num">Measured views</th><th className="num">Engagements</th><th className="num">Published</th></tr></thead><tbody>{data.accounts.map(a=><tr key={a.id}><td><a href={`/?platform=${a.platform}&account=${a.id}&range=30d`}>{a.title}</a><small className="sample-note">{PLATFORM_LABEL[a.platform]}</small></td><td className="num">{fmtFull(a.followers)}</td><td className="num">{signed(a.followersGained)}</td><td className="num">{fmtFull(a.viewsGained)}</td><td className="num">{fmtFull(a.engagementsGained)}</td><td className="num">{a.videosPublished}</td></tr>)}</tbody></table></section>
  <section className="card trending section brief-winners"><div className="card-head"><h2 className="card-title">Videos driving measured growth</h2></div><ol className="trend-list">{data.topVideos.filter(v=>v.viewsGained>0).map(v=><li key={v.id}><a href={`/library/${v.id}`}><Img className="tthumb" src={v.thumbnailUrl}/><span className="tinfo"><b className="brief-video-title" title={v.title}>{v.title}</b><small className="sample-note">{v.accountTitle} · {PLATFORM_LABEL[v.platform]}</small></span><span className="tgain"><b>+{fmtFull(v.viewsGained)}</b><small>measured views</small></span></a></li>)}</ol>{!data.topVideos.some(v=>v.viewsGained>0)&&<div className="empty">No measured video growth in this period yet.</div>}</section>
  <p className="muted">Source: YouTube Data API, YouTube Analytics and TikTok Display API. Checked {new Date(data.generatedAt).toLocaleString("en-GB")}. Sync runs on a periodic schedule, not instantly after publication.</p>
- </>}{!data&&!error&&<div className="empty">Loading monthly brief...</div>}</>;
+ </>}{!data&&!error&&<LoadingState />}</>;
 }
