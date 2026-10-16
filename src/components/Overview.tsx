@@ -192,7 +192,7 @@ export function Overview() {
         </div>
       </details>}
       {data && (
-        <div className={loading ? "refetching" : undefined}>
+        <div className={loading ? "refetching" : undefined} aria-busy={loading}>
           <div className="kpis dashboard-kpis">
             <Kpi
               noDelta={!data.comparisonReady}
