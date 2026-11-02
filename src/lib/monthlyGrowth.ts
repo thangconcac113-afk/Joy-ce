@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
+import { realSnapshot } from "./snapshots";
 
 export interface MonthlyGrowthPoint { accountId: number; day: string; views: number }
 
@@ -10,13 +11,13 @@ export async function getMonthlyGrowth(db: Db, start: Date, end: Date): Promise<
       select v.id as video_id, v.account_id, v.published_at, b.id, b.taken_at, b.views
       from videos v join lateral (
         select s.id, s.taken_at, s.views from video_snapshots s
-        where s.video_id = v.id and s.taken_at <= ${start.toISOString()}::timestamptz
+        where s.video_id = v.id and s.taken_at <= ${start.toISOString()}::timestamptz and ${realSnapshot()}
         order by s.taken_at desc, s.id desc limit 1
       ) b on true
       union all
       select v.id, v.account_id, v.published_at, s.id, s.taken_at, s.views
       from video_snapshots s join videos v on v.id = s.video_id
-      where s.taken_at > ${start.toISOString()}::timestamptz and s.taken_at <= ${end.toISOString()}::timestamptz
+      where s.taken_at > ${start.toISOString()}::timestamptz and s.taken_at <= ${end.toISOString()}::timestamptz and ${realSnapshot()}
     ), changes as (
       select *, lag(views) over(partition by video_id order by taken_at, id) as previous_views from samples
     )

@@ -1,6 +1,7 @@
 import { normalizeHashtag } from "./hashtags";
 import { sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
+import { realSnapshot } from "./snapshots";
 import type { PlatformFilter } from "./metrics";
 export const CONTENT_TYPES = ["Meme", "Highlights", "Mic check", "BTS", "Interview", "Announcement", "Sponsor", "Other"] as const;
 export type InsightQuery = { platform: PlatformFilter; accountId?: number | null; days: number; hours: number; contentType?: string; game?: string; campaign?: string; hashtag?: string };
@@ -47,7 +48,7 @@ export async function getInsights(db: Db, q: InsightQuery, now = new Date()) {
       coalesce(latest.comments,0)::float8 as comments, coalesce(latest.shares,0)::float8 as shares,
       milestone.views::float8 as "ageViews", milestone.eng::float8 as "ageEngagements", milestone.taken_at as "ageSampleAt"
     from videos v join accounts a on a.id = v.account_id
-    left join lateral (select * from video_snapshots s where s.video_id = v.id and s.taken_at <= ${now.toISOString()}::timestamptz order by s.taken_at desc limit 1) latest on true
+    left join lateral (select * from video_snapshots s where s.video_id = v.id and s.taken_at <= ${now.toISOString()}::timestamptz and ${realSnapshot()} order by s.taken_at desc limit 1) latest on true
     left join lateral (
       select s.views, coalesce(s.likes,0)+coalesce(s.comments,0)+coalesce(s.shares,0) as eng, s.taken_at from video_snapshots s
       where s.video_id = v.id

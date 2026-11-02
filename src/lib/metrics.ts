@@ -1,6 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import { normalizeHashtag } from "./hashtags";
 import { getMonthlyGrowth, type MonthlyGrowthPoint } from "./monthlyGrowth";
+import { realSnapshot } from "./snapshots";
 import type { Db } from "@/db/client";
 
 export const RANGES = { "24h": 1, "7d": 7, "30d": 30, "90d": 90 } as const;
@@ -122,15 +123,15 @@ function videoGainsQuery(f: Filters, start: Date, end: Date): SQL {
     left join video_analytics va on va.video_id = v.id
     join lateral (
       select views, likes, comments, shares from video_snapshots s
-      where s.video_id = v.id and s.taken_at <= ${iso(end)}::timestamptz
+      where s.video_id = v.id and s.taken_at <= ${iso(end)}::timestamptz and ${realSnapshot()}
       order by taken_at desc limit 1) last on true
     left join lateral (
       select views, coalesce(likes,0)+coalesce(comments,0)+coalesce(shares,0) as eng from video_snapshots s
-      where s.video_id = v.id and s.taken_at <= ${iso(start)}::timestamptz
+      where s.video_id = v.id and s.taken_at <= ${iso(start)}::timestamptz and ${realSnapshot()}
       order by taken_at desc limit 1) base on true
     left join lateral (
       select views, coalesce(likes,0)+coalesce(comments,0)+coalesce(shares,0) as eng from video_snapshots s
-      where s.video_id = v.id and s.taken_at > ${iso(start)}::timestamptz and s.taken_at <= ${iso(end)}::timestamptz
+      where s.video_id = v.id and s.taken_at > ${iso(start)}::timestamptz and s.taken_at <= ${iso(end)}::timestamptz and ${realSnapshot()}
       order by taken_at asc limit 1) first on true
     where ${scope(f, { account: "a" })}`;
 }
@@ -215,7 +216,7 @@ function seriesQuery(kind: "views" | "followers", f: Filters, start: Date, end: 
               min(v.published_at) as published_at
             from video_snapshots s join videos v on v.id = s.video_id join accounts a on a.id = v.account_id
             where s.taken_at > ${iso(lookback)}::timestamptz and s.taken_at <= ${iso(end)}::timestamptz
-              and ${scope(f, { account: "a" })}
+              and ${realSnapshot()} and ${scope(f, { account: "a" })}
             group by 1, 2, 3, 4`
       : sql`select a.platform, a.id as account_id, s.account_id as entity, date_trunc(${u}, s.taken_at) as bucket, max(s.followers) as value,
               null::timestamptz as published_at

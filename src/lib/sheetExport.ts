@@ -3,6 +3,7 @@
 // Impressions and CTR are left out on purpose: YouTube does not expose them through any API.
 
 import { sql } from "drizzle-orm";
+import { realSnapshot } from "./snapshots";
 import type { Db } from "@/db/client";
 
 export type ChannelKey = "main" | "vn" | "aov";
@@ -91,7 +92,7 @@ export async function getSheetVideos(db: Db, days: number, now = new Date()): Pr
     select v.external_id, a.handle, v.title, v.url, v.published_at, v.duration_sec, last.views, va.avd_sec, va.avg_view_pct
     from videos v
     join accounts a on a.id = v.account_id and a.platform = 'youtube'
-    join lateral (select views from video_snapshots s where s.video_id = v.id order by taken_at desc limit 1) last on true
+    join lateral (select views from video_snapshots s where s.video_id = v.id and ${realSnapshot()} order by taken_at desc limit 1) last on true
     left join video_analytics va on va.video_id = v.id
     where v.published_at >= ${since}::timestamptz
     order by v.published_at desc`)) as unknown as { rows: Raw[] };

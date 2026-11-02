@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { accounts, accountSnapshots, channelAnalytics, oauthStates, pollRuns, videoAnalytics, videos, videoSnapshots, type Account, type Platform } from "@/db/schema";
 import { extractHashtags } from "./hashtags";
+import { isGlitchReading } from "./snapshots";
 import { decrypt, encrypt } from "./crypto";
 import { fetchVideos, queryVideos, fetchUser, refreshTokens, tiktokConfig, type TikTokConfig } from "./tiktok";
 import { analyticsConfig, fetchChannelStats, fetchMonthStats, fetchVideoStats, myChannelId, refreshAccessToken } from "./ytAnalytics";
@@ -72,8 +73,9 @@ async function recordVideos(db: Db, account: Account, list: VideoInput[], now: D
     })
     .returning({ id: videos.id, externalId: videos.externalId });
   const idByExternal = new Map(rows.map((r) => [r.externalId, r.id]));
-  await db.insert(videoSnapshots).values(
-    list.map((v) => ({
+  const readings = list.filter((v) => !isGlitchReading(v.views, v.publishedAt, now));
+  if (readings.length) await db.insert(videoSnapshots).values(
+    readings.map((v) => ({
       videoId: idByExternal.get(v.id)!,
       takenAt: now,
       views: v.views,

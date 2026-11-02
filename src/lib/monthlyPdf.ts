@@ -83,13 +83,12 @@ export function monthlyPdfDefinition(r: MonthlyReport, images: Record<string, st
         number(v.viewsGained), number(v.views), number(v.engagementsGained),
       ]), [66, "*", 61, 65, 53]));
     } else content.push({ text: "No positive video growth was observed during this period.", color: "#536273" });
-    content.push({ text: "Top videos may predate this month. Period-end totals are lifetime counters. Long captions are shortened; click the title for the original. No first-week history is inferred.", fontSize: 8, color: "#536273", margin: [0, 6, 0, 0] });
   }
   content.push(
     { text: "Sources and measurement notes", fontSize: 23, bold: true, pageBreak: "before", margin: [0, 8, 0, 14] },
     { ul: [
       "Sources: YouTube Data API, connected YouTube Analytics and TikTok Display API. No invented or demo metrics are inserted into this report.",
-      "Views and engagement gained are observed differences on tracked videos. Imported lifetime totals are excluded from new growth. Missing history means measured results can understate the full month's actual performance.",
+      "Views and engagement gained are observed differences on tracked videos. Imported lifetime totals are excluded from new growth, and 0-view readings for videos older than a day are treated as provider glitches. Missing history means measured results can understate the full month's actual performance.",
       "Follower totals use the latest available observation at/before period end. Net follower change may be negative. YouTube subscriber numbers are rounded upstream.",
       "Publication counts cover videos published in the reporting window. All reporting boundaries follow Vietnam time (UTC+7). A running month compares the same elapsed time in the previous month.",
       "Engagements = likes + comments + available shares. YouTube shares are unavailable here. Cross-platform engagement totals therefore have different coverage.",
@@ -98,6 +97,7 @@ export function monthlyPdfDefinition(r: MonthlyReport, images: Record<string, st
       "Decorative emoji may be omitted from PDF titles for font compatibility. Original video links preserve access to full source content.",
       "Charts show observed positive counter increments grouped by Vietnam calendar day. Grey days have no usable observations. Sync gaps attribute changes to the day observed; source corrections can make daily positive increments differ from monthly net growth.",
       "Video thumbnails are embedded from trusted source CDNs for offline viewing. Expired or unavailable previews do not prevent report export.",
+      "Top videos may predate the month. Period-end totals are lifetime counters. Long captions are shortened; click a title for the original. No first-week history is inferred.",
     ], lineHeight: 1.4 },
   );
   return {
