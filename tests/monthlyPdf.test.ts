@@ -30,7 +30,8 @@ describe("monthly PDF", () => {
     const definition = JSON.stringify(monthlyPdfDefinition(report));
     expect(definition).toContain("Tiếng Việt");
     expect(definition).not.toContain("🎬");
-    expect(definition).toContain("YouTube only");
+    expect(definition).toContain("Video performance");
+    expect(definition).not.toContain("Insufficient history");
     const pdf = await createMonthlyPdf(report);
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(10_000);
