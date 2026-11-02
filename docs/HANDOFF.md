@@ -1,0 +1,4 @@
+
+## TikTok 0-view glitch fix (2026-11-02, Claude)
+
+Joyce's November PDF showed AOV TikTok videos with views gained equal to their lifetime total (182,413 = 182,413). Cause: TikTok sometimes returns view_count 0 for real, weeks-old videos; that stored 0 became the baseline. `src/lib/snapshots.ts` adds `realSnapshot()` (SQL guard: ignore 0-view rows taken more than a day after publish) used by video gains, time series, PDF daily chart, insights latest totals and the sheet feed; `isGlitchReading()` stops polling from storing new ones. Existing glitch rows stay in the database and are filtered at read time. Test: `tests/zeroViewGlitch.test.ts`. The repeated "Top videos may predate" footnote moved to the measurement notes page because it spilled onto a near-blank page. Production commit af852a0, Vercel Ready, 35 tests pass, tsc clean. Joyce only needs the monthly PDF (exported early in the following month); 3-4 h GitHub schedule gaps are acceptable for that.
