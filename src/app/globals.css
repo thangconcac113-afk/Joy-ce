@@ -515,3 +515,27 @@ a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,
   .dashboard-filters .seg button { flex:1; padding:6px; font-size:11px; }
   .dashboard-filters .select { width:100%; min-width:0; font-size:12px; }
 }
+
+/* Brand pass (Nov 2026): Team Secret black / white / silver. One hero number, bigger previews, firmer contrast. */
+:root { --muted: #6f6d67; }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { --ink-2: #d2d1ca; --muted: #a4a29b; --surface: #161616; --surface-2: #212120; } }
+:root[data-theme="dark"] { --ink-2: #d2d1ca; --muted: #a4a29b; --surface: #161616; --surface-2: #212120; }
+.kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi-label { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.kpi-value { font-size: 34px; font-weight: 700; letter-spacing: -.03em; }
+.dashboard-kpis .kpi:nth-child(2) { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.dashboard-kpis .kpi:nth-child(2) .kpi-label, .dashboard-kpis .kpi:nth-child(2) .kpi-note, .dashboard-kpis .kpi:nth-child(2) .delta, .dashboard-kpis .kpi:nth-child(2) .delta small { color: var(--accent-ink); opacity: .78; }
+.dashboard-kpis .kpi:nth-child(2) .kpi-value { font-size: 40px; opacity: 1; }
+.dashboard-kpis .kpi:nth-child(2) .metric-help summary { border-color: var(--accent-ink); color: var(--accent-ink); }
+.card-title { font-size: 16px; letter-spacing: -.01em; }
+.tthumb { width: 112px; border-radius: 6px; }
+.trend-list li a { grid-template-columns: 112px minmax(0, 1fr) auto; padding: 9px 6px; }
+.trend-list li a:has(.rank) { grid-template-columns: 18px 112px minmax(0, 1fr) auto; }
+.ttitle { font-size: 13px; }
+.video-table .tthumb { width: 128px; }
+.brand-copy small { color: var(--muted); letter-spacing: .2em; }
+.brand-copy b { font-size: 15px; letter-spacing: -.01em; }
+.sidebar .nav a.active, .sidebar .nav a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+.page-head h1 { font-size: 30px; letter-spacing: -.03em; }
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .kpi-value { font-size: 28px; } .dashboard-kpis .kpi:nth-child(2) .kpi-value { font-size: 32px; } .tthumb { width: 92px; } .trend-list li a { grid-template-columns: 92px minmax(0, 1fr) auto; } .trend-list li a:has(.rank) { grid-template-columns: 18px 92px minmax(0, 1fr) auto; } .video-table .tthumb { width: 92px; } }
